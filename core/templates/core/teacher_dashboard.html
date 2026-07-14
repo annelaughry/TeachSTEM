@@ -1,0 +1,107 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Teacher Dashboard — Lesson Database</title>
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" style="color:#fff; text-decoration:none; font-size:0.9rem;">&#8592; Lesson Library</a>
+  <span class="navbar-brand">Teacher Dashboard</span>
+  <span style="text-align:right;">
+    {% if request.user.is_staff or request.user.is_superuser %}
+      <a href="/staff/" style="color:#ccc; text-decoration:none; font-size:0.9rem; margin-right:1rem;">Admin Dashboard</a>
+    {% endif %}
+    <form method="post" action="/logout/" style="margin:0; display:inline;">{% csrf_token %}<button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:0.9rem;padding:0;">Log out</button></form>
+  </span>
+</nav>
+
+<div class="container" style="margin-top:100px;">
+
+  <div class="hero-section">
+    <h1>Welcome, {{ request.user.get_full_name|default:request.user.username }}</h1>
+    <p>Manage your classrooms and assign activities to your students.</p>
+  </div>
+
+  <div style="display:flex; gap:0.75rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+    <a href="/teacher/classroom/create/" class="btn" style="text-decoration:none;">+ New Classroom</a>
+    <a href="/teacher/activity/create/" class="btn btn-secondary" style="text-decoration:none;">+ Create Activity</a>
+    <a href="/teacher/module/create/" class="btn btn-secondary" style="text-decoration:none;">+ New Module</a>
+    <a href="/teacher/modules/" class="btn btn-secondary" style="text-decoration:none;">My Modules</a>
+  </div>
+
+  <!-- Teacher's own activities -->
+  {% with my_activities=request.user.created_activities.all %}
+  {% if my_activities %}
+  <span class="section-title" style="margin-bottom:0.75rem; display:block;">My Activities</span>
+  <div style="margin-bottom:2rem;">
+    {% for activity in my_activities %}
+      <div class="card" style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+        <div style="flex:1;">
+          <strong>{{ activity.title }}</strong>
+          <p style="margin:0.2rem 0 0; font-size:0.82rem; color:#888;">
+            {{ activity.get_activity_type_display }}{% for g in activity.grade_levels.all %} &middot; {{ g.name }}{% endfor %}
+            {% if activity.duration_minutes %}&middot; {{ activity.duration_minutes }} min{% endif %}
+            {% if activity.sections.exists %}&middot; {{ activity.sections.count }} section{{ activity.sections.count|pluralize }}{% endif %}
+          </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-shrink:0;">
+          {% if activity.status == 'draft' %}
+            <span style="font-size:0.78rem; padding:3px 10px; border-radius:12px; background:#f0f0f0; color:#888;">Draft</span>
+            <a href="/teacher/activity/{{ activity.pk }}/edit/"
+               class="btn btn-secondary" style="font-size:0.8rem; padding:5px 12px; text-decoration:none;">Edit</a>
+            <form method="post" action="/teacher/activity/{{ activity.pk }}/submit/" style="margin:0;">
+              {% csrf_token %}
+              <button type="submit" class="btn" style="font-size:0.8rem; padding:5px 12px;">Submit for Review</button>
+            </form>
+          {% elif activity.status == 'pending' %}
+            <span style="font-size:0.78rem; padding:3px 10px; border-radius:12px; background:#fff3cd; color:#856404;">Pending Review</span>
+          {% elif activity.status == 'approved' %}
+            <span style="font-size:0.78rem; padding:3px 10px; border-radius:12px; background:#d5f5e3; color:#1e8449;">In Shared Library</span>
+            <a href="/activity/{{ activity.pk }}/"
+               class="btn btn-secondary" style="font-size:0.8rem; padding:5px 12px; text-decoration:none;">View</a>
+          {% elif activity.status == 'rejected' %}
+            <span style="font-size:0.78rem; padding:3px 10px; border-radius:12px; background:#fde8e8; color:#c0392b;">Rejected</span>
+            <a href="/teacher/activity/{{ activity.pk }}/edit/"
+               class="btn btn-secondary" style="font-size:0.8rem; padding:5px 12px; text-decoration:none;">Edit &amp; Resubmit</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <span class="section-title" style="margin-bottom:0.75rem; display:block;">Your Classrooms</span>
+
+  {% if classrooms %}
+    {% for classroom in classrooms %}
+      <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 style="margin:0 0 0.25rem;">{{ classroom.name }}</h3>
+          <p style="margin:0; font-size:0.85rem;">
+            Join code: <strong style="font-family:monospace; font-size:1rem; color:#ff5c77;">{{ classroom.code }}</strong>
+            &nbsp;&middot;&nbsp; {{ classroom.students.count }} student{{ classroom.students.count|pluralize }}
+            &nbsp;&middot;&nbsp; {{ classroom.assigned_activities.count }} activit{{ classroom.assigned_activities.count|pluralize:"y,ies" }} assigned
+          </p>
+        </div>
+        <a href="/teacher/classroom/{{ classroom.pk }}/" class="btn" style="text-decoration:none; white-space:nowrap; margin-left:1rem;">
+          Manage
+        </a>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p style="color:#888; font-style:italic;">No classrooms yet. Create one to get started.</p>
+  {% endif %}
+
+</div>
+
+<footer>
+  <p>Young Scientist Academy &mdash; Lesson Database</p>
+</footer>
+
+</body>
+</html>

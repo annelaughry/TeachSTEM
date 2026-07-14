@@ -1,0 +1,39 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>New Classroom — Lesson Database</title>
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/teacher/" style="color:#fff; text-decoration:none; font-size:0.9rem;">&#8592; Teacher Dashboard</a>
+  <span class="navbar-brand">New Classroom</span>
+  <form method="post" action="/logout/" style="margin:0; display:inline;">{% csrf_token %}<button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:0.9rem;padding:0;">Log out</button></form>
+</nav>
+
+<div class="container" style="margin-top:120px; max-width:480px;">
+  <div class="form-container">
+    <h2 style="text-align:center; color:#ff5c77; margin-bottom:1.5rem;">Create a Classroom</h2>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group" style="margin-bottom:1.5rem;">
+        <label for="name">Classroom name</label>
+        <input id="name" name="name" type="text" placeholder="e.g. Period 3 Biology" autofocus>
+      </div>
+      <div class="button-group">
+        <button type="submit" class="btn">Create Classroom</button>
+        <a href="/teacher/" class="btn btn-secondary" style="text-decoration:none;">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<footer>
+  <p>Young Scientist Academy &mdash; Lesson Database</p>
+</footer>
+
+</body>
+</html>

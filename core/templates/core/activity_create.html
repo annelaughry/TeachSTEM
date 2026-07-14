@@ -1,0 +1,511 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% if activity %}Edit Activity{% else %}Create Activity{% endif %} — Lesson Database</title>
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+  <style>
+    .section-block {
+      border: 2px solid #ffe6f0;
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      background: #fff;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .prompt-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+      margin-bottom: 0.5rem;
+    }
+    .prompt-row textarea {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      min-height: 68px;
+      resize: vertical;
+      font-family: Arial, sans-serif;
+      font-size: 0.95rem;
+    }
+    .remove-btn {
+      background: none;
+      border: none;
+      color: #bbb;
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 4px 6px;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: color 0.2s;
+    }
+    .remove-btn:hover { color: #ff5c77; transform: none; background: none; }
+    .move-btn {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      color: #aaa;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 2px 7px;
+      line-height: 1.4;
+      transition: all 0.15s;
+    }
+    .move-btn:hover { background: #ffe6f0; border-color: #ff5c77; color: #ff5c77; transform: none; }
+    .add-prompt-btn {
+      background: none;
+      border: 1px dashed #ff5c77;
+      color: #ff5c77;
+      border-radius: 5px;
+      padding: 5px 12px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+      transition: background 0.2s;
+    }
+    .add-prompt-btn:hover { background: #ffe6f0; transform: none; }
+    .type-toggle { display:inline-flex; border:1px solid #ddd; border-radius:5px; overflow:hidden; margin-bottom:0.4rem; }
+    .type-btn { padding:4px 10px; font-size:0.78rem; background:#f8f8f8; border:none; cursor:pointer; color:#888; transition:all 0.15s; }
+    .type-btn.student.active { background:#ffe6f0; color:#ff5c77; font-weight:600; }
+    .type-btn.instruction.active { background:#e0f7f0; color:#1a9b6c; font-weight:600; }
+    .type-btn.teacher.active { background:#fff8e1; color:#b8860b; font-weight:600; }
+    .prompt-row.is-teacher { background:#fffdf0; border-left:3px solid #f0c040; border-radius:0 5px 5px 0; padding-left:0.5rem; }
+    .prompt-row.is-instruction { background:#f0fbf7; border-left:3px solid #1a9b6c; border-radius:0 5px 5px 0; padding-left:0.5rem; }
+    .resp-type-btn { padding:3px 9px; font-size:0.74rem; background:#f8f8f8; border:none; cursor:pointer; color:#888; transition:all 0.15s; }
+    .resp-type-btn.active-text { background:#ffe6f0; color:#ff5c77; font-weight:600; }
+    .resp-type-btn.active-video { background:#e8f4fd; color:#2980b9; font-weight:600; }
+    .resp-type-btn.active-table { background:#e9faf0; color:#1e8449; font-weight:600; }
+    .response-type-row { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem; }
+    .table-headers-section { margin-bottom:0.4rem; padding:0.5rem 0.6rem; background:#f4fdf7; border:1px solid #c3e6cb; border-radius:6px; }
+    .builder-header-input { padding:5px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem; flex:1; }
+    .links-container { margin-top: 0.75rem; }
+    .link-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem; }
+    .link-url-input { flex: 2; padding: 6px 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.88rem; }
+    .link-label-input { flex: 3; padding: 6px 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.88rem; }
+    .add-link-btn {
+      background: none;
+      border: 1px dashed #2980b9;
+      color: #2980b9;
+      border-radius: 5px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      margin-top: 0.25rem;
+      transition: background 0.2s;
+    }
+    .add-link-btn:hover { background: #e8f4fd; transform: none; }
+    .links-heading { font-size: 0.75rem; font-weight: 700; color: #2980b9; text-transform: uppercase; letter-spacing: 0.04em; margin: 0.75rem 0 0.35rem; }
+    .add-section-btn {
+      display: block;
+      width: 100%;
+      border: 2px dashed #ff5c77;
+      background: none;
+      color: #ff5c77;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 0.5rem;
+    }
+    .add-section-btn:hover { background: #ffe6f0; transform: none; }
+    textarea.full { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-family: Arial, sans-serif; font-size: 0.95rem; }
+    select.full { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.95rem; }
+    .draft-note { font-size: 0.82rem; color: #888; margin-left: 0.5rem; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  {% if is_admin_edit and activity %}
+    <a href="/activity/{{ activity.pk }}/" style="color:#fff; text-decoration:none; font-size:0.9rem;">&#8592; Activity</a>
+  {% else %}
+    <a href="/teacher/" style="color:#fff; text-decoration:none; font-size:0.9rem;">&#8592; Teacher Dashboard</a>
+  {% endif %}
+  <span class="navbar-brand">{% if activity %}{% if is_admin_edit %}Edit Activity{% else %}Edit Draft{% endif %}{% else %}New Activity{% endif %}</span>
+  <form method="post" action="/logout/" style="margin:0; display:inline;">{% csrf_token %}<button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:0.9rem;padding:0;">Log out</button></form>
+</nav>
+
+<div class="container" style="margin-top:100px; max-width:760px;">
+
+  <div class="hero-section" style="text-align:left; margin-bottom:1.5rem;">
+    <h1>{% if activity %}Edit Activity{% else %}Create an Activity{% endif %}</h1>
+    <p>{% if activity %}Continue editing your draft. Save Draft saves your progress; Save Activity saves a complete draft ready to submit for review.{% else %}Fill in the basics, then build your activity section by section. Use Save Draft to save your progress at any time.{% endif %}</p>
+  </div>
+
+  {% if errors %}
+    <div style="background:#fff0f0; border:1px solid #ffcccc; border-radius:6px; padding:1rem; margin-bottom:1rem;">
+      {% for e in errors %}<p style="margin:0; color:#c0392b;">{{ e }}</p>{% endfor %}
+    </div>
+  {% endif %}
+
+  <form id="activity-form" method="post" enctype="multipart/form-data"
+        action="{% if activity %}/teacher/activity/{{ activity.pk }}/edit/{% else %}/teacher/activity/create/{% endif %}"
+        onsubmit="return prepareSubmit()">
+    {% csrf_token %}
+    <input type="hidden" id="form-action-field" name="form_action" value="save">
+
+    <!-- Basic info -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h3 style="margin:0 0 1rem; color:#ff5c77; border-bottom:2px solid #ffe6f0; padding-bottom:0.5rem;">Basic Info</h3>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label for="title">Activity title *</label>
+        <input id="title" name="title" type="text" value="{{ post.title }}"
+          style="width:100%; padding:8px; border:1px solid #ddd; border-radius:5px;" autofocus>
+      </div>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label for="activity_type">Type <span style="font-weight:normal; color:#aaa;">(required to save)</span></label>
+        <select id="activity_type" name="activity_type" class="full" style="max-width:280px;">
+          <option value="">— select —</option>
+          {% for value, label in activity_types %}
+            <option value="{{ value }}" {% if post.activity_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label>Grade(s) / Course(s) <span style="font-weight:normal; color:#aaa;">(required to save)</span></label>
+        <div style="display:flex; flex-wrap:wrap; gap:0.5rem 1.25rem; margin-top:0.4rem;">
+          {% for grade in grade_levels %}
+            <label style="display:flex; align-items:center; gap:0.4rem; font-weight:normal; cursor:pointer;">
+              <input type="checkbox" name="grade_levels" value="{{ grade.id }}"
+                {% if grade.id|stringformat:"s" in selected_grades %}checked{% endif %}
+                style="accent-color:#ff5c77; width:16px; height:16px;">
+              {{ grade.name }}
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label for="duration_minutes">Estimated duration (minutes)</label>
+        <input id="duration_minutes" name="duration_minutes" type="number" min="0"
+          value="{{ post.duration_minutes }}"
+          style="width:140px; padding:8px; border:1px solid #ddd; border-radius:5px;">
+      </div>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label for="description">Overview / description</label>
+        <textarea id="description" name="description" class="full" style="min-height:80px;">{{ post.description }}</textarea>
+      </div>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label for="materials">Materials needed</label>
+        <textarea id="materials" name="materials" class="full" style="min-height:80px;"
+          placeholder="List materials, one per line…">{{ post.materials }}</textarea>
+      </div>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label for="instructions_pdf">Upload a file <span style="font-weight:normal; color:#aaa;">(PDF, image, or document — optional)</span></label>
+        {% if activity and activity.instructions_pdf %}
+          <div style="margin-bottom:0.5rem; font-size:0.88rem; color:#555;">
+            Current file: <a href="{{ activity.instructions_pdf.url }}" target="_blank" style="color:#ff5c77;">{{ activity.instructions_pdf.name|cut:"activity_pdfs/" }}</a>
+            &nbsp;
+            <label style="font-weight:normal; color:#888; cursor:pointer; font-size:0.82rem;">
+              <input type="checkbox" name="clear_instructions_pdf" value="1" style="accent-color:#ff5c77; margin-right:0.25rem;">
+              Remove file
+            </label>
+          </div>
+        {% endif %}
+        <input id="instructions_pdf" name="instructions_pdf" type="file"
+               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.svg"
+               style="display:block; font-size:0.9rem; color:#555; padding:4px 0;">
+      </div>
+
+      <div class="form-group">
+        <label>Standard codes <span style="font-weight:normal; color:#aaa;">(optional)</span></label>
+        <p style="font-size:0.82rem; color:#999; margin:0.2rem 0 0.5rem;">Enter each standard code exactly as it appears, e.g. MS-LS1-1</p>
+        <div id="standards-container">
+          {% for code in standard_codes %}
+            <div style="display:flex; gap:0.5rem; margin-bottom:0.4rem; align-items:center;">
+              <input type="text" name="standard_codes" value="{{ code }}"
+                style="flex:1; max-width:280px; padding:8px; border:1px solid #ddd; border-radius:5px; font-family:monospace; font-size:0.95rem;"
+                placeholder="e.g. MS-LS1-1">
+              <button type="button" class="remove-btn" onclick="this.parentElement.remove()">&#x2715;</button>
+            </div>
+          {% endfor %}
+        </div>
+        <button type="button" class="add-prompt-btn" onclick="addStandard()">+ Add Standard Code</button>
+      </div>
+    </div>
+
+    <!-- Sections builder -->
+    <h3 style="color:#333; margin-bottom:0.75rem;">Activity Sections</h3>
+    <p style="color:#888; font-size:0.88rem; margin-bottom:1rem;">
+      Each section has a title and one or more prompts — questions, instructions, or tasks for students.
+    </p>
+
+    <div id="sections-container"></div>
+
+    <button type="button" class="add-section-btn" onclick="addSection()">+ Add Section</button>
+
+    <div class="button-group" style="margin-top:2rem; display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+      <button type="submit" class="btn">Save Activity</button>
+      <button type="button" class="btn btn-secondary" onclick="saveDraft()">Save Draft</button>
+      <a href="/teacher/" class="btn btn-secondary" style="text-decoration:none;">Cancel</a>
+      <span class="draft-note">Save Draft keeps your work without requiring all fields.</span>
+    </div>
+  </form>
+
+</div>
+
+<footer>
+  <p>Young Scientist Academy &mdash; Lesson Database</p>
+</footer>
+
+<script>
+  const EXISTING_SECTIONS = {{ sections_json|safe }};
+  let sectionCounter = 0;
+
+  function addSection(data) {
+    const container = document.getElementById('sections-container');
+    const idx = sectionCounter++;
+
+    const div = document.createElement('div');
+    div.className = 'section-block';
+    div.dataset.sectionIdx = idx;
+    div.innerHTML = `
+      <div class="section-header">
+        <strong style="color:#ff5c77;">Section</strong>
+        <div style="display:flex; align-items:center; gap:0.35rem;">
+          <button type="button" class="move-btn" title="Move up" onclick="moveSection(this,'up')">&#8593;</button>
+          <button type="button" class="move-btn" title="Move down" onclick="moveSection(this,'down')">&#8595;</button>
+          <button type="button" class="remove-btn" title="Remove section"
+            onclick="this.closest('.section-block').remove()">&#x2715; Remove section</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0.75rem;">
+        <label>Section title</label>
+        <input class="section-title-input" type="text"
+          style="width:100%; padding:8px; border:1px solid #ddd; border-radius:5px;"
+          placeholder="e.g. Background, Procedure, Analysis, Reflection…">
+      </div>
+      <div class="prompts-container"></div>
+      <button type="button" class="add-prompt-btn" onclick="addPrompt(this)">+ Add Prompt</button>
+      <div class="links-heading">&#128279; Links &amp; Resources</div>
+      <div class="links-container"></div>
+      <button type="button" class="add-link-btn" onclick="addLink(this)">+ Add Link / Video</button>
+    `;
+    container.appendChild(div);
+
+    if (data) {
+      div.querySelector('.section-title-input').value = data.title || '';
+      if (data.prompts && data.prompts.length > 0) {
+        data.prompts.forEach(function(p) {
+          addPrompt(div.querySelector('.add-prompt-btn'), p.type, p.text, p.response_type, p.table_headers);
+        });
+      } else {
+        addPrompt(div.querySelector('.add-prompt-btn'));
+      }
+      if (data.links && data.links.length > 0) {
+        data.links.forEach(function(l) {
+          addLink(div.querySelector('.add-link-btn'), l.url, l.label);
+        });
+      }
+    } else {
+      addPrompt(div.querySelector('.add-prompt-btn'));
+    }
+  }
+
+  function _escAttr(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function addPrompt(btn, defaultType, defaultText, defaultRespType, defaultTableHeaders) {
+    const type = defaultType || 'student';
+    const respType = (type === 'student') ? (defaultRespType || 'text') : 'text';
+    const container = btn.closest('.section-block').querySelector('.prompts-container');
+    const div = document.createElement('div');
+    div.className = 'prompt-row' + (type === 'teacher' ? ' is-teacher' : type === 'instruction' ? ' is-instruction' : '');
+    div.style.cssText = 'margin-bottom:0.6rem;';
+    div.innerHTML = `
+      <div style="display:flex; gap:0.5rem; align-items:flex-start;">
+        <div style="flex:1;">
+          <div class="type-toggle" style="margin-bottom:0.3rem;">
+            <button type="button" class="type-btn student ${type==='student'?'active':''}" onclick="setType(this,'student')">Student Prompt</button>
+            <button type="button" class="type-btn instruction ${type==='instruction'?'active':''}" onclick="setType(this,'instruction')">Student Instructions</button>
+            <button type="button" class="type-btn teacher ${type==='teacher'?'active':''}" onclick="setType(this,'teacher')">Teacher Note</button>
+          </div>
+          <div class="response-type-row" style="display:${type==='student'?'flex':'none'};">
+            <span style="font-size:0.75rem; color:#aaa; white-space:nowrap;">Response type:</span>
+            <div class="type-toggle">
+              <button type="button" class="resp-type-btn ${respType==='text'?'active-text':''}" onclick="setRespType(this,'text')">Text</button>
+              <button type="button" class="resp-type-btn ${respType==='video'?'active-video':''}" onclick="setRespType(this,'video')">&#127909; Video</button>
+              <button type="button" class="resp-type-btn ${respType==='table'?'active-table':''}" onclick="setRespType(this,'table')">&#128200; Data Table</button>
+            </div>
+          </div>
+          <div class="table-headers-section" style="display:${respType==='table'?'block':'none'};">
+            <p style="font-size:0.75rem; color:#1e8449; font-weight:600; margin:0 0 0.4rem;">Column headers <span style="font-weight:normal; color:#888;">(students can also add their own)</span></p>
+            <div class="headers-list"></div>
+            <button type="button" class="add-prompt-btn" style="font-size:0.78rem; padding:3px 10px; margin-top:0.3rem;" onclick="addHeaderInput(this)">+ Add Column</button>
+          </div>
+          <input type="hidden" class="prompt-type-input" value="${type}">
+          <input type="hidden" class="response-type-input" value="${respType}">
+          <textarea class="prompt-textarea" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:5px;min-height:68px;resize:vertical;font-family:Arial,sans-serif;font-size:0.95rem;"
+            placeholder="${type==='teacher'?'Instruction or note visible only to the teacher…':type==='instruction'?'Instructions or information visible to students (no response required)…':'Question or task for students…'}"></textarea>
+        </div>
+        <button type="button" class="remove-btn" title="Remove" onclick="this.closest('.prompt-row').remove()">&#x2715;</button>
+      </div>
+    `;
+    container.appendChild(div);
+    if (defaultText) {
+      div.querySelector('.prompt-textarea').value = defaultText;
+    } else {
+      div.querySelector('.prompt-textarea').focus();
+    }
+    if (defaultTableHeaders && defaultTableHeaders.length > 0) {
+      defaultTableHeaders.forEach(function(h) { _addHeaderRow(div.querySelector('.headers-list'), h); });
+    }
+  }
+
+  function addHeaderInput(btn) {
+    _addHeaderRow(btn.previousElementSibling, '');
+    btn.previousElementSibling.lastElementChild.querySelector('input').focus();
+  }
+
+  function _addHeaderRow(list, value) {
+    const d = document.createElement('div');
+    d.style.cssText = 'display:flex; gap:0.3rem; align-items:center; margin-bottom:0.3rem;';
+    d.innerHTML = `<input type="text" class="builder-header-input" value="${_escAttr(value)}" placeholder="e.g. Time (s)…">
+      <button type="button" class="remove-btn" onclick="this.parentElement.remove()">&#x2715;</button>`;
+    list.appendChild(d);
+  }
+
+  function setType(btn, type) {
+    const row = btn.closest('.prompt-row');
+    row.querySelectorAll('.type-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    row.querySelector('.prompt-type-input').value = type;
+    row.className = 'prompt-row' + (type === 'teacher' ? ' is-teacher' : type === 'instruction' ? ' is-instruction' : '');
+    row.querySelector('textarea').placeholder = type === 'teacher'
+      ? 'Instruction or note visible only to the teacher…'
+      : type === 'instruction'
+        ? 'Instructions or information visible to students (no response required)…'
+        : 'Question or task for students…';
+    const respRow = row.querySelector('.response-type-row');
+    if (respRow) respRow.style.display = type === 'student' ? 'flex' : 'none';
+    if (type === 'teacher' || type === 'instruction') {
+      row.querySelector('.response-type-input').value = 'text';
+      const tableSection = row.querySelector('.table-headers-section');
+      if (tableSection) tableSection.style.display = 'none';
+    }
+  }
+
+  function setRespType(btn, type) {
+    const row = btn.closest('.prompt-row');
+    row.querySelectorAll('.resp-type-btn').forEach(function(b) {
+      b.classList.remove('active-text', 'active-video', 'active-table');
+    });
+    btn.classList.add(type === 'video' ? 'active-video' : type === 'table' ? 'active-table' : 'active-text');
+    row.querySelector('.response-type-input').value = type;
+    const tableSection = row.querySelector('.table-headers-section');
+    if (tableSection) tableSection.style.display = type === 'table' ? 'block' : 'none';
+  }
+
+  function moveSection(btn, direction) {
+    const section = btn.closest('.section-block');
+    const container = document.getElementById('sections-container');
+    const sections = Array.from(container.querySelectorAll('.section-block'));
+    const idx = sections.indexOf(section);
+    if (direction === 'up' && idx > 0) {
+      container.insertBefore(section, sections[idx - 1]);
+    } else if (direction === 'down' && idx < sections.length - 1) {
+      container.insertBefore(sections[idx + 1], section);
+    }
+  }
+
+  function prepareSubmit() {
+    document.querySelectorAll('.generated-field').forEach(function(f) { f.remove(); });
+    const form = document.getElementById('activity-form');
+
+    function hidden(name, value) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      input.className = 'generated-field';
+      form.appendChild(input);
+    }
+
+    const sections = document.querySelectorAll('.section-block');
+    hidden('section_count', sections.length);
+
+    sections.forEach(function(section, sIdx) {
+      hidden('section_' + sIdx + '_title', section.querySelector('.section-title-input').value);
+      const rows = section.querySelectorAll('.prompt-row');
+      hidden('section_' + sIdx + '_prompt_count', rows.length);
+      rows.forEach(function(row, pIdx) {
+        hidden('section_' + sIdx + '_prompt_' + pIdx, row.querySelector('.prompt-textarea').value);
+        hidden('section_' + sIdx + '_prompt_' + pIdx + '_type', row.querySelector('.prompt-type-input').value);
+        hidden('section_' + sIdx + '_prompt_' + pIdx + '_response_type', row.querySelector('.response-type-input').value);
+        const tableHeaders = [];
+        (row.querySelectorAll('.builder-header-input') || []).forEach(function(inp) {
+          if (inp.value.trim()) tableHeaders.push(inp.value.trim());
+        });
+        hidden('section_' + sIdx + '_prompt_' + pIdx + '_table_headers', JSON.stringify(tableHeaders));
+      });
+
+      const linkRows = section.querySelectorAll('.link-row');
+      hidden('section_' + sIdx + '_link_count', linkRows.length);
+      linkRows.forEach(function(lrow, lIdx) {
+        hidden('section_' + sIdx + '_link_' + lIdx + '_url', lrow.querySelector('.link-url-input').value.trim());
+        hidden('section_' + sIdx + '_link_' + lIdx + '_label', lrow.querySelector('.link-label-input').value.trim());
+      });
+    });
+
+    return true;
+  }
+
+  function saveDraft() {
+    document.getElementById('form-action-field').value = 'draft';
+    prepareSubmit();
+    document.getElementById('activity-form').submit();
+  }
+
+  function addLink(btn, defaultUrl, defaultLabel) {
+    const container = btn.previousElementSibling;
+    const div = document.createElement('div');
+    div.className = 'link-row';
+    div.innerHTML = `
+      <input type="text" class="link-url-input" placeholder="https://…" value="${_escAttr(defaultUrl||'')}">
+      <input type="text" class="link-label-input" placeholder="Label (e.g. Read: What is photosynthesis?)" value="${_escAttr(defaultLabel||'')}">
+      <button type="button" class="remove-btn" title="Remove" onclick="this.closest('.link-row').remove()">&#x2715;</button>
+    `;
+    container.appendChild(div);
+    if (!defaultUrl) div.querySelector('.link-url-input').focus();
+  }
+
+  function addStandard() {
+    const container = document.getElementById('standards-container');
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex; gap:0.5rem; margin-bottom:0.4rem; align-items:center;';
+    div.innerHTML = `
+      <input type="text" name="standard_codes"
+        style="flex:1; max-width:280px; padding:8px; border:1px solid #ddd; border-radius:5px; font-family:monospace; font-size:0.95rem;"
+        placeholder="e.g. MS-LS1-1">
+      <button type="button" class="remove-btn" onclick="this.parentElement.remove()">&#x2715;</button>
+    `;
+    container.appendChild(div);
+    div.querySelector('input').focus();
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    if (EXISTING_SECTIONS.length > 0) {
+      EXISTING_SECTIONS.forEach(function(sdata) { addSection(sdata); });
+    } else {
+      addSection();
+    }
+  });
+</script>
+
+</body>
+</html>

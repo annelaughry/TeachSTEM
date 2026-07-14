@@ -1,0 +1,46 @@
+# Local, prod-like stack for testing the Docker image before it ever
+# touches AWS. Run: docker compose up --build
+# Then visit http://localhost:8000
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: lessons
+      POSTGRES_USER: lessons
+      POSTGRES_PASSWORD: lessons_local_pw
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lessons"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SECRET_KEY: local-docker-testing-key-not-for-prod
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: lessons
+      DB_USER: lessons
+      DB_PASSWORD: lessons_local_pw
+      DB_SSLMODE: disable
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173"
+      CSRF_TRUSTED_ORIGINS: "http://localhost:8000"
+    volumes:
+      - media:/app/media
+
+volumes:
+  pgdata:
+  media:

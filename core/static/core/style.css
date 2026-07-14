@@ -1,0 +1,647 @@
+body {
+    background-color: #ffe6f0;
+    font-family: 'Arial', sans-serif;
+    color: #333;
+}
+
+/* Team Logos Navigation */
+.team-logos-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #151414;
+    padding: 8px;
+    position: relative;
+    z-index: 999;
+    margin-top: 80px;
+}
+
+
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 1050;
+    background-color: #333333;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    color: #ffffff;
+    font-size: 1.2rem;
+    margin-right: auto;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+}
+
+.navbar-collapse {
+    background-color: transparent;
+    padding: 0;
+    box-shadow: none;
+    border: none;
+}
+
+@media (max-width: 991.98px) {
+  .navbar-nav {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .navbar-nav .nav-link {
+    padding: 0.5rem 1rem;
+    font-size: 1.1rem;
+  }
+}
+
+
+  /* Center Logo */
+.navbar-brand.navbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 10px;
+}
+
+.navbar-nav .nav-link:hover {
+    color: #ff5c77;
+    text-decoration: underline;
+}
+
+.navbar-nav .nav-link.active {
+    color: #ff5c77;
+    font-weight: bold;
+}
+
+.navbar-toggler {
+    background-color: #333333;
+    border-radius: 8px;
+    padding: 16px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease-in-out;
+    z-index: 2;
+}
+
+.navbar-toggler-icon {
+    background-image: none !important;
+    position: relative;
+    display: inline-block;
+    width: 24px;
+    height: 2px;
+    background-color: #ffffff;
+    border-radius: 1px;
+    transition: background-color 0.3s ease-in-out;
+}
+
+.navbar-toggler-icon::before,
+.navbar-toggler-icon::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 2px;
+    background-color: #ffffff;
+    border-radius: 1px;
+    transition: background-color 0.3s ease-in-out;
+}
+
+.navbar-toggler-icon::before {
+    bottom: 8px;
+    left: 0;
+}
+
+.navbar-toggler-icon::after {
+    top: 8px;
+    left: 0;
+}
+
+.navbar-toggler:hover .navbar-toggler-icon,
+.navbar-toggler:hover .navbar-toggler-icon::before,
+.navbar-toggler:hover .navbar-toggler-icon::after {
+    background-color: #ff5c77;
+}
+
+.navbar-toggler:focus .navbar-toggler-icon,
+.navbar-toggler:focus .navbar-toggler-icon::before,
+.navbar-toggler:focus .navbar-toggler-icon::after {
+    background-color: #ff5c77;
+}
+
+.custom-navbar {
+  position: relative;
+  justify-content: space-between;
+}
+
+.navbar-left {
+  flex: 1;
+}
+
+.navbar-right {
+  flex-shrink: 0;
+}
+
+
+/* Team Logo Links */
+.team-logo-link {
+    margin: 0 8px;
+    text-decoration: none;
+}
+
+/* Team Logo Small (Corrected Size) */
+.team-logo-small {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid white;
+    object-fit: cover;
+    transition: transform 0.2s ease-in-out;
+}
+
+.team-logo-small:hover {
+    transform: scale(1.2);
+}
+
+.container {
+    max-width: 960px;
+    padding: 20px;
+}
+
+.hero-section {
+    background: #ffffff;
+    color: #333;
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.hero-section h1 {
+    font-size: 2.2rem;
+    font-weight: bold;
+    color: #ff5c77;
+    margin-bottom: 15px;
+}
+
+.hero-section p {
+    font-size: 1rem;
+    margin-top: 10px;
+    padding: 0 10px;
+    color: #555;
+}
+
+.announcement-list .list-group-item {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 15px;
+    transition: transform 0.2s ease, background-color 0.3s ease;
+    padding: 15px;
+}
+
+.announcement-list .list-group-item:hover {
+    background-color: #ffe0e5;
+    transform: translateY(-2px);
+    cursor: pointer;
+}
+
+.announcement-list .list-group-item::before {
+    content: '\1F514';
+    margin-right: 10px;
+    color: #ff5c77;
+}
+
+footer {
+    background-color: #333333;
+    color: #ffffff;
+    padding: 15px 0;
+    font-size: 0.9rem;
+    text-align: center;
+    border-top: 3px solid #ff5c77;
+}
+
+footer p {
+    margin-bottom: 5px;
+}
+
+footer .social-icons {
+    margin-top: 10px;
+}
+
+footer .social-icons a {
+    color: #cccccc;
+    margin: 0 10px;
+    font-size: 1.2rem;
+    transition: color 0.3s ease;
+}
+
+footer .social-icons a:hover {
+    color: #ff5c77;
+}
+
+.logo {
+    max-width: 120px;
+    height: auto;
+    display: block;
+    margin: 10px auto;
+}
+
+/* General Button Styling */
+button, .btn {
+    background-color: #ff5c77;
+    color: #ffffff;
+    border: 2px solid #ff5c77;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+button:hover, .btn:hover {
+    background-color: #ffffff;
+    color: #ff5c77;
+    transform: scale(1.05);
+}
+
+button:active, .btn:active {
+    transform: scale(0.95);
+}
+
+.btn-outline-danger, .btn-outline-primary {
+    background-color: #ff5c77;
+    color: #ffffff;
+    border: 2px solid #ff5c77;
+}
+
+.btn-outline-danger:hover, .btn-outline-primary:hover {
+    background-color: #ffffff;
+    color: #ff5c77;
+}
+
+/* Consistent Card Style */
+.card {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: transform 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #333;
+}
+
+p, li {
+    color: #555;
+}
+
+.dashboard-container {
+    margin-top: 30px;
+    margin-bottom: 50px;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.section-title {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #333333;
+    margin-bottom: 15px;
+    border-bottom: 3px solid #ff5c77;
+    display: inline-block;
+    padding-bottom: 5px;
+}
+
+.avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 3px solid #ff5c77;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.custom-file-upload {
+    background-color: #ff5c77;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.custom-file-upload:hover {
+    background-color: white;
+    color: #ff5c77;
+    border: 2px solid #ff5c77;
+}
+
+.avatar-container {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.avatar-container button {
+    margin-top: 10px;
+    background-color: #ff5c77;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.avatar-container button:hover {
+    background-color: #ffffff;
+    color: #ff5c77;
+    border: 2px solid #ff5c77;
+    transform: scale(1.05);
+}
+
+.list-group-item {
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.list-group-item:hover {
+    background-color: #ffe6f0;
+}
+
+.form-container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #ffe5ec;
+    border-radius: 12px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.form-group label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.avatar-container {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 3px solid #ff5c77;
+    object-fit: cover;
+    display: block;
+    margin: 10px auto;
+}
+
+.custom-file-upload {
+    background-color: #ff5c77;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-block;
+    margin-top: 10px;
+    transition: background-color 0.3s ease-in-out;
+}
+
+.custom-file-upload:hover {
+    background-color: white;
+    color: #ff5c77;
+    border: 2px solid #ff5c77;
+}
+
+.button-group {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+}
+
+.btn-secondary {
+    background-color: #ff5c77;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #ff1c50;
+}
+
+.progress {
+    height: 20px;
+    border-radius: 10px;
+    background-color: #eeeeee;
+}
+
+.progress-bar {
+    background-color: #ff5c77;
+    font-size: 0.9rem;
+    font-weight: bold;
+    width: 100%;
+    height: 20px;
+}
+
+.classes-list .class-item {
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.classes-list .class-item:hover {
+    background-color: #ffe6f0;
+}
+
+footer {
+    padding: 20px 0;
+    border-top: 3px solid #ff5c77;
+    font-size: 0.9rem;
+    text-align: center;
+    color: #ffffff;
+    background-color: #333333;
+}
+
+.team-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+}
+
+.team-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 15px;
+    width: 250px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.team-logo {
+    width: 100%;
+    height: 120px;
+    object-fit: contain;
+    border-radius: 8px;
+    display: block;
+    margin: 0 auto 10px;
+}
+
+.team-name {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.join-btn {
+    background-color: #ff5c77;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    border: none;
+    transition: all 0.3s ease-in-out;
+    margin-top: 10px;
+}
+
+.join-btn:hover {
+    background-color: white;
+    color: #ff5c77;
+    border: 2px solid #ff5c77;
+}
+
+.theme-tile {
+    display: block;
+    position: relative;
+    height: 200px;
+    background-size: cover;
+    background-position: center;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    text-decoration: none;
+    transition: transform 0.3s ease-in-out;
+}
+
+.theme-tile:hover {
+    transform: scale(1.02);
+}
+
+.theme-tile h4 {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.theme-tile.locked {
+    opacity: 0.5;
+    filter: grayscale(100%) blur(1px) brightness(0.7);
+    pointer-events: none;
+}
+
+.locked-icon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+}
+
+.locked-message {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-size: 0.9rem;
+}
+
+.badge-item {
+  padding: 6px 10px;
+  margin: 4px 0;
+  border-radius: 8px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge-emoji {
+  font-size: 1.2em;
+}
+
+.badge-bronze {
+  background-color: #f7e0b2;
+  border-left: 4px solid #c08a00;
+}
+
+.badge-silver {
+  background-color: #e0e0e0;
+  border-left: 4px solid #888;
+}
+
+.badge-gold {
+  background-color: #ffe066;
+  border-left: 4px solid #cfa500;
+}
+
+.badge-default {
+  background-color: #f1f5f9;
+  border-left: 4px solid #ccc;
+}

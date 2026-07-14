@@ -1,0 +1,209 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lesson Database</title>
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+  <style>
+    select:disabled { opacity: 0.45; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span style="flex:1;"></span>
+  <span class="navbar-brand">Lesson Database</span>
+  <span style="flex:1; text-align:right;">
+    {% if user.is_authenticated %}
+      {% if user.is_staff or user.is_superuser or user.teacher_profile %}
+        {% if user.is_staff or user.is_superuser %}
+          <a href="/staff/" style="color:#ccc; text-decoration:none; font-size:0.9rem; margin-right:1rem;">Admin Dashboard</a>
+        {% endif %}
+        <a href="/teacher/" style="color:#ccc; text-decoration:none; font-size:0.9rem; margin-right:1rem;">Teacher Dashboard</a>
+      {% else %}
+        <a href="/student/" style="color:#ccc; text-decoration:none; font-size:0.9rem; margin-right:1rem;">My Classrooms</a>
+      {% endif %}
+      <form method="post" action="/logout/" style="margin:0; display:inline;">{% csrf_token %}<button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:0.9rem;padding:0;">Log out</button></form>
+    {% else %}
+      <a href="/login/" style="color:#ccc; text-decoration:none; font-size:0.9rem; margin-right:1rem;">Log In</a>
+      <a href="/student/register/" style="color:#ccc; text-decoration:none; font-size:0.9rem;">Student Sign Up</a>
+    {% endif %}
+  </span>
+</nav>
+
+<div class="container" style="margin-top: 100px;">
+
+  <div class="hero-section">
+    <h1>Find a Lesson</h1>
+    <p>Search STEM challenges, guided research lessons, and project starters by standard or concept.</p>
+  </div>
+
+  <form method="get" class="form-container" style="max-width: 100%; margin-bottom: 2rem;">
+    <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem;">
+
+      <div class="form-group">
+        <label for="q">Keyword</label>
+        <input id="q" name="q" type="text" value="{{ q }}" placeholder="Search title or description…">
+      </div>
+
+      <div class="form-group">
+        <label for="activity_type">Activity type</label>
+        <select id="activity_type" name="activity_type" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:5px;">
+          <option value="">All types</option>
+          {% for value, label in activity_types %}
+            <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Cascading: Grade → Strand → Standard -->
+      <div class="form-group">
+        <label for="grade_level">Grade / Course</label>
+        <select id="grade_level" name="grade_level" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:5px;">
+          <option value="">All grades</option>
+          {% for grade in grade_levels %}
+            <option value="{{ grade.id }}" {% if selected_grade == grade.id|stringformat:"s" %}selected{% endif %}>{{ grade.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="strand">Strand</label>
+        <select id="strand" name="strand" disabled style="width:100%;padding:8px;border:1px solid #ddd;border-radius:5px;">
+          <option value="">— select grade first —</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="standard">Standard</label>
+        <select id="standard" name="standard" disabled style="width:100%;padding:8px;border:1px solid #ddd;border-radius:5px;">
+          <option value="">— select strand first —</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="concept">Concept</label>
+        <select id="concept" name="concept" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:5px;">
+          <option value="">All concepts</option>
+          {% for c in concepts %}
+            <option value="{{ c.id }}" {% if selected_concept == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+    </div>
+    <div class="button-group" style="margin-top: 1rem;">
+      <button type="submit" class="btn">Search</button>
+      <a href="/" class="btn btn-secondary" style="text-decoration:none;">Clear</a>
+    </div>
+  </form>
+
+  {% if searched %}
+  <p style="color:#555; margin-bottom:1rem;">{{ activities.count }} activit{{ activities.count|pluralize:"y,ies" }} found</p>
+  {% endif %}
+
+  {% if searched %}
+  {% for activity in activities %}
+    <div class="card">
+      <h2 style="margin:0 0 0.5rem; color:#ff5c77;">{{ activity.title }}</h2>
+      <div style="margin-bottom:0.5rem;">
+        <span class="badge-item badge-default" style="display:inline-flex; margin-right:0.4rem;">{{ activity.get_activity_type_display }}</span>
+        {% for g in activity.grade_levels.all %}<span class="badge-item badge-default" style="display:inline-flex; margin-right:0.3rem;">{{ g.name }}</span>{% endfor %}
+        <span class="badge-item badge-default" style="display:inline-flex;">{{ activity.duration_minutes }} min</span>
+      </div>
+      <p>{{ activity.description }}</p>
+      {% if activity.standards.exists %}
+        <p style="margin:0.25rem 0 0; font-size:0.85rem;">
+          <strong>Standards:</strong>
+          {% for s in activity.standards.all %}{{ s.code }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </p>
+      {% endif %}
+      {% if activity.concepts.exists %}
+        <p style="margin:0.25rem 0 0; font-size:0.85rem;">
+          <strong>Concepts:</strong>
+          {% for c in activity.concepts.all %}{{ c.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </p>
+      {% endif %}
+      <div style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <a href="/activity/{{ activity.pk }}/" class="btn" style="font-size:0.85rem; padding:6px 14px; text-decoration:none;">
+          View Activity
+        </a>
+        {% if activity.instructions_pdf %}
+          <a href="{{ activity.instructions_pdf.url }}" target="_blank" class="btn btn-secondary" style="font-size:0.85rem; padding:6px 14px; text-decoration:none;">
+            Download PDF
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  {% empty %}
+    <p style="color:#888; font-style:italic;">No activities match your search. Try different filters.</p>
+  {% endfor %}
+  {% endif %}
+
+</div>
+
+<footer>
+  <p>Young Scientist Academy &mdash; Lesson Database</p>
+</footer>
+
+<script>
+  const STRANDS = {{ strands_json|safe }};
+  const STANDARDS = {{ standards_json|safe }};
+
+  const gradeSelect    = document.getElementById('grade_level');
+  const strandSelect   = document.getElementById('strand');
+  const standardSelect = document.getElementById('standard');
+
+  function populateStrands(grade) {
+    strandSelect.innerHTML = '<option value="">— select a strand —</option>';
+    // Show strands that have at least one standard at this grade level
+    const filtered = grade
+      ? STRANDS.filter(s => s.grades.includes(grade))
+      : STRANDS;
+    filtered.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      if (String(s.id) === '{{ selected_strand }}') opt.selected = true;
+      strandSelect.appendChild(opt);
+    });
+    strandSelect.disabled = filtered.length === 0;
+  }
+
+  function populateStandards(grade, strandId) {
+    standardSelect.innerHTML = '<option value="">— select a standard —</option>';
+    const filtered = STANDARDS.filter(s =>
+      String(s.strand_id) === String(strandId) && s.grade_level === grade
+    );
+    filtered.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.code;
+      if (String(s.id) === '{{ selected_standard }}') opt.selected = true;
+      standardSelect.appendChild(opt);
+    });
+    standardSelect.disabled = filtered.length === 0;
+  }
+
+  gradeSelect.addEventListener('change', () => {
+    populateStrands(gradeSelect.value);
+    standardSelect.innerHTML = '<option value="">— select strand first —</option>';
+    standardSelect.disabled = true;
+  });
+
+  strandSelect.addEventListener('change', () => {
+    populateStandards(gradeSelect.value, strandSelect.value);
+  });
+
+  // Restore selections on page load after a search
+  const initialGrade  = '{{ selected_grade }}';
+  const initialStrand = '{{ selected_strand }}';
+  if (initialGrade) {
+    populateStrands(initialGrade);
+    if (initialStrand) populateStandards(initialGrade, initialStrand);
+  }
+</script>
+
+</body>
+</html>

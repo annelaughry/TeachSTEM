@@ -1,0 +1,50 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Join a Classroom — Lesson Database</title>
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" style="color:#fff; text-decoration:none; font-size:0.9rem;">&#8592; Lesson Library</a>
+  <span class="navbar-brand">Join a Classroom</span>
+  <form method="post" action="/logout/" style="margin:0; display:inline;">{% csrf_token %}<button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:0.9rem;padding:0;">Log out</button></form>
+</nav>
+
+<div class="container" style="margin-top:120px; max-width:420px;">
+  <div class="form-container">
+    <h2 style="text-align:center; color:#ff5c77; margin-bottom:0.5rem;">Enter Your Classroom Code</h2>
+    <p style="text-align:center; color:#555; margin-bottom:1.5rem; font-size:0.9rem;">Ask your teacher for the 6-character code.</p>
+
+    {% if error %}
+      <p style="color:#c0392b; text-align:center;">{{ error }}</p>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group" style="margin-bottom:1.5rem;">
+        <label for="code">Classroom code</label>
+        <input id="code" name="code" type="text" maxlength="8"
+          style="text-transform:uppercase; font-family:monospace; font-size:1.4rem; letter-spacing:0.2em; text-align:center;"
+          placeholder="ABC123" autofocus>
+      </div>
+      <div class="button-group">
+        <button type="submit" class="btn">Join Classroom</button>
+      </div>
+    </form>
+
+    <p style="text-align:center; margin-top:1rem;">
+      <a href="/student/" style="color:#ff5c77; font-size:0.9rem;">View my classrooms</a>
+    </p>
+  </div>
+</div>
+
+<footer>
+  <p>Young Scientist Academy &mdash; Lesson Database</p>
+</footer>
+
+</body>
+</html>

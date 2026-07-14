@@ -1,0 +1,319 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% if module %}Edit Module{% else %}New Module{% endif %} — Lesson Database</title>
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+  <style>
+    .builder-wrap {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+    }
+    .library-panel {
+      flex: 1 1 55%;
+      min-width: 0;
+    }
+    .sequence-panel {
+      flex: 0 0 340px;
+      width: 340px;
+      position: sticky;
+      top: 90px;
+    }
+    .panel-card {
+      background: #fff;
+      border: 2px solid #ffe6f0;
+      border-radius: 10px;
+      padding: 1.1rem 1.25rem;
+    }
+    .panel-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #ff5c77;
+      border-bottom: 2px solid #ffe6f0;
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.85rem;
+    }
+    .search-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+      box-sizing: border-box;
+    }
+    .activity-pick-card {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 7px;
+      padding: 0.6rem 0.85rem;
+      margin-bottom: 0.45rem;
+    }
+    .activity-pick-info { flex: 1; min-width: 0; }
+    .activity-pick-title { font-weight: 600; font-size: 0.93rem; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .activity-pick-meta { font-size: 0.76rem; color: #888; margin-top: 0.1rem; }
+    .add-btn {
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      background: #ff5c77;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .add-btn:disabled { background: #c8e6c9; color: #2e7d32; cursor: default; }
+    .seq-empty {
+      color: #aaa;
+      font-size: 0.88rem;
+      text-align: center;
+      padding: 1.5rem 0.5rem;
+      font-style: italic;
+    }
+    .seq-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 7px;
+      padding: 0.5rem 0.65rem;
+      margin-bottom: 0.4rem;
+    }
+    .seq-num {
+      font-weight: 700;
+      color: #ff5c77;
+      font-size: 0.88rem;
+      min-width: 1.5rem;
+      text-align: right;
+    }
+    .seq-info { flex: 1; min-width: 0; }
+    .seq-title { font-size: 0.88rem; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .seq-type { font-size: 0.73rem; color: #888; }
+    .seq-btns { display: flex; gap: 0.25rem; flex-shrink: 0; }
+    .seq-btn {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 2px 6px;
+      font-size: 0.8rem;
+      color: #888;
+      line-height: 1.4;
+    }
+    .seq-btn:hover { background: #ffe6f0; border-color: #ff5c77; color: #ff5c77; }
+    .seq-btn.remove:hover { background: #fde8e8; border-color: #e74c3c; color: #e74c3c; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="{% if module %}/teacher/module/{{ module.pk }}/{% else %}/teacher/modules/{% endif %}"
+     style="color:#fff; text-decoration:none; font-size:0.9rem;">&#8592; {% if module %}Module{% else %}My Modules{% endif %}</a>
+  <span class="navbar-brand">{% if module %}Edit Module{% else %}New Module{% endif %}</span>
+  <form method="post" action="/logout/" style="margin:0; display:inline;">{% csrf_token %}<button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:0.9rem;padding:0;">Log out</button></form>
+</nav>
+
+<div class="container" style="margin-top:90px; max-width:1100px;">
+
+  {% if errors %}
+    <div style="background:#fde8e8; border:1px solid #f5c6cb; border-radius:8px; padding:0.85rem 1.1rem; margin-bottom:1.25rem;">
+      {% for e in errors %}<p style="margin:0.2rem 0; color:#c0392b; font-size:0.9rem;">&#9888; {{ e }}</p>{% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post"
+        action="{% if module %}/teacher/module/{{ module.pk }}/edit/{% else %}/teacher/module/create/{% endif %}"
+        onsubmit="return prepareSubmit()">
+    {% csrf_token %}
+    <div id="activity-ids-container"></div>
+
+    <!-- Title + description -->
+    <div class="card" style="margin-bottom:1.25rem;">
+      <div class="form-group" style="margin-bottom:0.9rem;">
+        <label for="title" style="font-weight:600;">Module title *</label>
+        <input id="title" name="title" type="text" autofocus
+               value="{{ module.title|default:'' }}"
+               style="width:100%; padding:8px; border:1px solid #ddd; border-radius:5px; font-size:1rem; box-sizing:border-box;">
+      </div>
+      <div class="form-group">
+        <label for="description" style="font-weight:600;">Description <span style="font-weight:normal; color:#aaa;">(optional)</span></label>
+        <textarea id="description" name="description"
+                  style="width:100%; padding:8px; border:1px solid #ddd; border-radius:5px; min-height:68px; resize:vertical; font-size:0.95rem; box-sizing:border-box;">{{ module.description|default:'' }}</textarea>
+      </div>
+    </div>
+
+    <!-- Builder panels -->
+    <div class="builder-wrap">
+
+      <!-- Left: activity library -->
+      <div class="library-panel">
+        <div class="panel-card">
+          <div class="panel-title">&#128218; Activity Library</div>
+          <input type="text" class="search-input" id="activity-search"
+                 placeholder="Search by title, type, or grade…" oninput="filterActivities()">
+          <div id="activity-library">
+            {% for activity in approved_activities %}
+              <div class="activity-pick-card"
+                   data-id="{{ activity.pk }}"
+                   data-search="{{ activity.title|lower }} {{ activity.get_activity_type_display|lower }}{% for g in activity.grade_levels.all %} {{ g.name|lower }}{% endfor %}">
+                <div class="activity-pick-info">
+                  <div class="activity-pick-title" title="{{ activity.title }}">{{ activity.title }}</div>
+                  <div class="activity-pick-meta">
+                    {{ activity.get_activity_type_display }}
+                    {% for g in activity.grade_levels.all %}&middot; {{ g.name }}{% endfor %}
+                  </div>
+                </div>
+                <button type="button" class="add-btn"
+                        onclick="addToModule({{ activity.pk }}, '{{ activity.title|escapejs }}', '{{ activity.get_activity_type_display|escapejs }}')">
+                  Add &#8594;
+                </button>
+              </div>
+            {% empty %}
+              <p style="color:#aaa; font-style:italic;">No approved activities in the library yet.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: module sequence -->
+      <div class="sequence-panel">
+        <div class="panel-card">
+          <div class="panel-title">&#128203; Module Sequence</div>
+          <div id="module-sequence">
+            <p class="seq-empty" id="seq-empty">No activities added yet.<br>Pick from the library.</p>
+          </div>
+          <div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">
+            <button type="submit" class="btn" style="width:100%;">
+              {% if module %}Save Changes{% else %}Create Module{% endif %}
+            </button>
+            <a href="{% if module %}/teacher/module/{{ module.pk }}/{% else %}/teacher/modules/{% endif %}"
+               style="text-align:center; font-size:0.85rem; color:#888; text-decoration:none; padding:6px;">
+              Cancel
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </form>
+</div>
+
+<footer>
+  <p>Young Scientist Academy &mdash; Lesson Database</p>
+</footer>
+
+<script>
+  const _inModule = new Set();
+
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function addToModule(id, title, type) {
+    if (_inModule.has(id)) return;
+    _inModule.add(id);
+
+    const emptyMsg = document.getElementById('seq-empty');
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    const seq = document.getElementById('module-sequence');
+    const div = document.createElement('div');
+    div.className = 'seq-item';
+    div.dataset.id = id;
+    div.innerHTML =
+      '<span class="seq-num"></span>' +
+      '<div class="seq-info">' +
+        '<div class="seq-title" title="' + _esc(title) + '">' + _esc(title) + '</div>' +
+        '<div class="seq-type">' + _esc(type) + '</div>' +
+      '</div>' +
+      '<div class="seq-btns">' +
+        '<button type="button" class="seq-btn" title="Move up" onclick="moveSeq(this,-1)">&#8593;</button>' +
+        '<button type="button" class="seq-btn" title="Move down" onclick="moveSeq(this,1)">&#8595;</button>' +
+        '<button type="button" class="seq-btn remove" title="Remove" onclick="removeSeq(this)">&#215;</button>' +
+      '</div>';
+    seq.appendChild(div);
+    updateNumbers();
+    syncAddButtons();
+  }
+
+  function moveSeq(btn, dir) {
+    var item = btn.closest('.seq-item');
+    var seq = item.parentElement;
+    var items = Array.from(seq.querySelectorAll('.seq-item'));
+    var idx = items.indexOf(item);
+    if (dir === -1 && idx > 0) {
+      seq.insertBefore(item, items[idx - 1]);
+    } else if (dir === 1 && idx < items.length - 1) {
+      seq.insertBefore(items[idx + 1], item);
+    }
+    updateNumbers();
+  }
+
+  function removeSeq(btn) {
+    var item = btn.closest('.seq-item');
+    _inModule.delete(parseInt(item.dataset.id));
+    item.remove();
+    updateNumbers();
+    syncAddButtons();
+    var seq = document.getElementById('module-sequence');
+    if (!seq.querySelector('.seq-item')) {
+      document.getElementById('seq-empty').style.display = '';
+    }
+  }
+
+  function updateNumbers() {
+    document.querySelectorAll('#module-sequence .seq-item').forEach(function(item, i) {
+      item.querySelector('.seq-num').textContent = (i + 1) + '.';
+    });
+  }
+
+  function syncAddButtons() {
+    document.querySelectorAll('#activity-library .activity-pick-card').forEach(function(card) {
+      var btn = card.querySelector('.add-btn');
+      var id = parseInt(card.dataset.id);
+      btn.disabled = _inModule.has(id);
+      btn.textContent = _inModule.has(id) ? '✓ Added' : 'Add →';
+    });
+  }
+
+  function filterActivities() {
+    var q = document.getElementById('activity-search').value.toLowerCase();
+    document.querySelectorAll('#activity-library .activity-pick-card').forEach(function(card) {
+      card.style.display = card.dataset.search.includes(q) ? '' : 'none';
+    });
+  }
+
+  function prepareSubmit() {
+    var items = document.querySelectorAll('#module-sequence .seq-item');
+    if (!items.length) {
+      alert('Add at least one activity to the module before saving.');
+      return false;
+    }
+    var container = document.getElementById('activity-ids-container');
+    container.innerHTML = '';
+    items.forEach(function(item) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden';
+      inp.name = 'activity_ids';
+      inp.value = item.dataset.id;
+      container.appendChild(inp);
+    });
+    return true;
+  }
+
+  // Restore existing activities when editing
+  var EXISTING_ACTIVITIES = {{ existing_activities_json|safe }};
+  EXISTING_ACTIVITIES.forEach(function(a) {
+    addToModule(a.id, a.title, a.type);
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,629 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ activity.title }} — Lesson Database</title>
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+  <style>
+    .section-card {
+      border: 2px solid #ffe6f0;
+      border-radius: 12px;
+      padding: 1.5rem;
+      background: #fff;
+      margin-bottom: 1.5rem;
+    }
+    .section-heading {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #ff5c77;
+      margin: 0 0 1.25rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #ffe6f0;
+    }
+    .prompt-block {
+      margin-bottom: 1.5rem;
+    }
+    .prompt-text {
+      font-weight: 600;
+      color: #333;
+      font-size: 0.97rem;
+      margin-bottom: 0.5rem;
+      line-height: 1.45;
+    }
+    .response-area {
+      width: 100%;
+      min-height: 110px;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 7px;
+      font-size: 0.95rem;
+      font-family: Arial, sans-serif;
+      resize: vertical;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+    .response-area:focus {
+      outline: none;
+      border-color: #ff5c77;
+      box-shadow: 0 0 0 3px rgba(255,92,119,0.1);
+    }
+    .preview-response-box {
+      width: 100%;
+      min-height: 80px;
+      border: 1px dashed #ddd;
+      border-radius: 7px;
+      background: #fafafa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #bbb;
+      font-size: 0.88rem;
+      font-style: italic;
+    }
+    .video-recorder-wrap { margin-top: 0.35rem; }
+    .recorder-video {
+      width: 100%;
+      max-height: 260px;
+      background: #111;
+      border-radius: 8px;
+      display: block;
+    }
+    .recorder-controls { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+    .rec-btn-start { background: #ff5c77; color: #fff; border: none; border-radius: 6px; padding: 7px 16px; cursor: pointer; font-size: 0.88rem; font-weight: 600; }
+    .rec-btn-start:disabled { opacity: 0.45; cursor: not-allowed; }
+    .rec-btn-stop { background: #eee; color: #555; border: none; border-radius: 6px; padding: 7px 14px; cursor: pointer; font-size: 0.88rem; }
+    .rec-btn-stop:disabled { opacity: 0.45; cursor: not-allowed; }
+    .rec-btn-discard { background: none; color: #aaa; border: 1px solid #ddd; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 0.82rem; }
+    .rec-status { font-size: 0.8rem; color: #e74c3c; margin-top: 0.3rem; display: none; }
+    .existing-video { margin-top: 0.75rem; }
+    .existing-video video { width: 100%; max-height: 200px; border-radius: 7px; background: #111; }
+    .resp-type-badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; background: #e8f4fd; color: #2980b9; border-radius: 4px; padding: 1px 7px; margin-bottom: 0.3rem; }
+    .resources-block { margin-bottom: 1.25rem; }
+    .resources-label { font-size: 0.72rem; font-weight: 700; color: #2980b9; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+    .resource-link {
+      display: flex; align-items: center; gap: 0.55rem;
+      background: #e8f4fd; border: 1px solid #bee3f8; border-radius: 8px;
+      padding: 0.6rem 0.9rem; margin-bottom: 0.4rem;
+      color: #1a5276; text-decoration: none; font-size: 0.92rem; font-weight: 600;
+      transition: background 0.15s;
+    }
+    .resource-link:hover { background: #d0eaf8; }
+    .resource-link-icon { font-size: 1rem; flex-shrink: 0; }
+    .resource-link-sub { font-size: 0.75rem; font-weight: 400; color: #5d8aa8; word-break: break-all; }
+    .resp-type-badge.table-badge { background: #e9faf0; color: #1e8449; }
+    .dt-wrap { overflow-x: auto; margin-top: 0.35rem; border: 1px solid #ddd; border-radius: 8px; }
+    .dt-table { border-collapse: collapse; min-width: 320px; width: 100%; }
+    .dt-table th, .dt-table td { border: 1px solid #e0e0e0; padding: 0; }
+    .dt-table thead tr { background: #f4fdf7; }
+    .dt-table .th-wrap { display: flex; align-items: center; }
+    .dt-table .del-col-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 0.75rem; padding: 2px 4px; flex-shrink: 0; line-height: 1; }
+    .dt-table .del-col-btn:hover { color: #ff5c77; }
+    .header-cell-inp {
+      width: 100%; border: none; background: transparent; font-weight: 700; font-size: 0.85rem;
+      padding: 6px 8px; outline: none; min-width: 80px; color: #1e8449; text-align: center;
+    }
+    .header-cell-inp:focus { background: #d5f5e3; }
+    .cell-inp {
+      width: 100%; border: none; background: transparent; font-size: 0.9rem;
+      padding: 6px 8px; outline: none; min-width: 80px;
+    }
+    .cell-inp:focus { background: #f0f8f5; }
+    .del-row-btn { background: none; border: none; color: #bbb; cursor: pointer; font-size: 0.9rem; padding: 4px 6px; width: 28px; }
+    .del-row-btn:hover { color: #ff5c77; }
+    .dt-add-row { font-size: 0.82rem; padding: 5px 14px; }
+    .dt-add-col { font-size: 0.82rem; padding: 5px 14px; }
+    .saved-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.78rem;
+      color: #1e8449;
+      margin-top: 0.35rem;
+    }
+    .feedback-box {
+      margin-top: 0.6rem;
+      background: #fff8e1;
+      border-left: 3px solid #f0c040;
+      padding: 0.6rem 0.9rem;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .progress-bar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 2rem;
+    }
+    .progress-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+    .step-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid #ddd;
+      background: #fff;
+      color: #aaa;
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 1;
+    }
+    .step-circle.active {
+      background: #ff5c77;
+      border-color: #ff5c77;
+      color: #fff;
+    }
+    .step-circle.done {
+      background: #d5f5e3;
+      border-color: #27ae60;
+      color: #1e8449;
+    }
+    .step-connector {
+      flex: 1;
+      height: 2px;
+      background: #eee;
+      margin-top: -16px;
+    }
+    .step-connector.done { background: #27ae60; }
+    .step-label {
+      font-size: 0.72rem;
+      color: #888;
+      margin-top: 0.3rem;
+      text-align: center;
+      max-width: 80px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .step-label.active { color: #ff5c77; font-weight: 600; }
+    .nav-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+    .saved-banner {
+      background: #d5f5e3;
+      border: 1px solid #a9dfbf;
+      border-radius: 7px;
+      padding: 0.65rem 1rem;
+      color: #1e8449;
+      font-size: 0.9rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .preview-banner {
+      background: #e8f4fd;
+      border: 1px solid #bee3f8;
+      border-radius: 7px;
+      padding: 0.65rem 1rem;
+      color: #2c7a9c;
+      font-size: 0.88rem;
+      margin-bottom: 1.25rem;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="{% if is_teacher_preview %}/activity/{{ activity.pk }}/{% else %}/student/{% endif %}"
+     style="color:#fff; text-decoration:none; font-size:0.9rem;">&#8592;
+    {% if is_teacher_preview %}Activity{% else %}My Classrooms{% endif %}
+  </a>
+  <span class="navbar-brand">{{ activity.title }}</span>
+  <form method="post" action="/logout/" style="margin:0; display:inline;">{% csrf_token %}<button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:0.9rem;padding:0;">Log out</button></form>
+</nav>
+
+<div class="container" style="margin-top:100px; max-width:720px;">
+
+  {% if no_sections %}
+    <div class="hero-section" style="text-align:left;">
+      <h1>{{ activity.title }}</h1>
+      <p style="color:#888; font-style:italic;">This activity has no student prompts yet.</p>
+    </div>
+
+  {% else %}
+
+    {% if is_teacher_preview %}
+      <div class="preview-banner">
+        <strong>Teacher Preview</strong> &mdash; you are seeing this activity as a student would.
+        Responses are not saved in preview mode.
+      </div>
+    {% endif %}
+
+    {% if saved %}
+      <div class="saved-banner">
+        &#10003; Responses saved for this section.
+      </div>
+    {% endif %}
+
+    <!-- Progress indicator -->
+    {% if total_sections > 1 %}
+      <div class="progress-bar">
+        {% for n in section_range %}
+          {% if not forloop.first %}
+            <div class="step-connector {% if n <= section_num %}done{% endif %}"></div>
+          {% endif %}
+          <div class="progress-step">
+            <div class="step-circle {% if n == section_num %}active{% elif n < section_num %}done{% endif %}">
+              {% if n < section_num %}&#10003;{% else %}{{ n }}{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <p style="text-align:center; color:#888; font-size:0.88rem; margin:-1rem 0 1.5rem;">
+        Section {{ section_num }} of {{ total_sections }}
+      </p>
+    {% endif %}
+
+    <!-- Section card -->
+    <div class="section-card">
+      <h2 class="section-heading">{{ current_section.title }}</h2>
+
+      {% with section_links=current_section.links.all %}
+      {% if section_links %}
+        <div class="resources-block">
+          <div class="resources-label">&#128279; Resources</div>
+          {% for link in section_links %}
+            <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" class="resource-link">
+              <span class="resource-link-icon">
+                {% if 'youtube.com' in link.url or 'youtu.be' in link.url or 'vimeo.com' in link.url %}&#127909;{% else %}&#128279;{% endif %}
+              </span>
+              <span>
+                {{ link.label|default:link.url }}
+                {% if link.label %}<div class="resource-link-sub">{{ link.url }}</div>{% endif %}
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% endwith %}
+
+      <form method="post" id="section-form" enctype="multipart/form-data" onsubmit="captureAllTables()">
+        {% csrf_token %}
+
+        {% for item in prompts_data %}
+          {% if item.prompt.prompt_type == 'instruction' %}
+            <div class="prompt-block" style="background:#f0fbf7; border-left:3px solid #1a9b6c; border-radius:0 8px 8px 0; padding:0.75rem 1rem;">
+              <div style="font-size:0.72rem; font-weight:700; color:#1a9b6c; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.3rem;">&#128221; Instructions</div>
+              <div style="color:#333; font-size:0.97rem;">{{ item.prompt.text|linebreaksbr }}</div>
+            </div>
+          {% else %}
+          <div class="prompt-block">
+            {% if item.prompt.response_type == 'video' %}
+              <div class="resp-type-badge">&#127909; Video response</div>
+            {% elif item.prompt.response_type == 'table' %}
+              <div class="resp-type-badge table-badge">&#128200; Data table</div>
+            {% endif %}
+            <p class="prompt-text">{{ item.prompt.text|linebreaksbr }}</p>
+
+            {% if is_teacher_preview %}
+              {% if item.prompt.response_type == 'video' %}
+                <div class="preview-response-box">Student records a video response here</div>
+              {% elif item.prompt.response_type == 'table' %}
+                <div class="preview-response-box">
+                  Student builds a data table here{% if item.prompt.table_headers %} &mdash; pre-set columns: {% for h in item.prompt.table_headers %}{{ h }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}
+                </div>
+              {% else %}
+                <div class="preview-response-box">Student types their response here</div>
+              {% endif %}
+            {% elif item.prompt.response_type == 'video' %}
+              <div class="video-recorder-wrap" id="recorder-wrap-{{ item.prompt.id }}">
+                <video class="recorder-video" id="vid-{{ item.prompt.id }}" playsinline muted></video>
+                <div class="recorder-controls">
+                  <button type="button" class="rec-btn-start" id="start-{{ item.prompt.id }}"
+                          onclick="startRec('{{ item.prompt.id }}')">&#9679; Start Recording</button>
+                  <button type="button" class="rec-btn-stop" id="stop-{{ item.prompt.id }}"
+                          onclick="stopRec('{{ item.prompt.id }}')" disabled>&#9632; Stop</button>
+                  <button type="button" class="rec-btn-discard" id="discard-{{ item.prompt.id }}"
+                          onclick="discardRec('{{ item.prompt.id }}')" style="display:none;">Discard</button>
+                </div>
+                <div class="rec-status" id="rec-status-{{ item.prompt.id }}">&#9679; Recording…</div>
+                {% if item.response and item.response.response_video %}
+                  <div class="existing-video">
+                    <span class="saved-badge">&#10003; Video response saved</span>
+                    <video src="{{ item.response.response_video.url }}" controls></video>
+                    <p style="font-size:0.8rem; color:#aaa; margin:0.2rem 0 0;">Record a new video to replace it.</p>
+                  </div>
+                {% endif %}
+                <input type="file" name="video_{{ item.prompt.id }}" id="file-{{ item.prompt.id }}"
+                       style="display:none;" accept="video/*">
+              </div>
+            {% elif item.prompt.response_type == 'table' %}
+              <div class="dt-wrap">
+                <table class="dt-table" id="dt-{{ item.prompt.id }}">
+                  <thead><tr id="dt-head-{{ item.prompt.id }}"></tr></thead>
+                  <tbody id="dt-body-{{ item.prompt.id }}"></tbody>
+                </table>
+              </div>
+              <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary dt-add-row"
+                        onclick="addTableRow('{{ item.prompt.id }}')">+ Add Row</button>
+                <button type="button" class="btn btn-secondary dt-add-col"
+                        onclick="addTableCol('{{ item.prompt.id }}')">+ Add Column</button>
+              </div>
+              <input type="hidden" name="table_data_{{ item.prompt.id }}" id="table-data-{{ item.prompt.id }}">
+              {% if item.response and item.response.response_table %}
+                <span class="saved-badge">&#10003; Table saved</span>
+              {% endif %}
+              {% if item.response and item.response.feedback %}
+                <div class="feedback-box">
+                  <strong style="color:#b8860b;">Teacher feedback:</strong> {{ item.response.feedback.text }}
+                </div>
+              {% endif %}
+              <script>
+                (window._dtInits = window._dtInits || []).push([
+                  '{{ item.prompt.id }}',
+                  {{ item.table_headers_json|safe }},
+                  {{ item.response_table_json|safe }}
+                ]);
+              </script>
+
+            {% else %}
+              <textarea class="response-area"
+                name="response_{{ item.prompt.id }}"
+                placeholder="Write your response here…">{{ item.response.response_text|default:'' }}</textarea>
+              {% if item.response and item.response.response_text %}
+                <span class="saved-badge">&#10003; Response saved</span>
+              {% endif %}
+              {% if item.response and item.response.feedback %}
+                <div class="feedback-box">
+                  <strong style="color:#b8860b;">Teacher feedback:</strong> {{ item.response.feedback.text }}
+                </div>
+              {% endif %}
+            {% endif %}
+          </div>
+          {% endif %}{# end instruction/non-instruction split #}
+        {% endfor %}
+
+        <!-- Navigation -->
+        {% if is_teacher_preview %}
+          <div class="nav-row">
+            {% if has_prev %}
+              <a href="/activity/{{ activity.pk }}/work/{{ prev_num }}/"
+                 class="btn btn-secondary" style="text-decoration:none;">&#8592; Previous</a>
+            {% endif %}
+            {% if has_next %}
+              <a href="/activity/{{ activity.pk }}/work/{{ next_num }}/"
+                 class="btn" style="text-decoration:none;">Next &#8594;</a>
+            {% else %}
+              <a href="/activity/{{ activity.pk }}/"
+                 class="btn btn-secondary" style="text-decoration:none;">&#8592; Back to Activity</a>
+            {% endif %}
+          </div>
+
+        {% else %}
+          <div class="nav-row">
+            <button type="submit" name="action" value="save" class="btn btn-secondary">
+              Save Draft
+            </button>
+            {% if has_prev %}
+              <button type="submit" name="action" value="prev" class="btn btn-secondary">
+                &#8592; Previous
+              </button>
+            {% endif %}
+            {% if has_next %}
+              <button type="submit" name="action" value="next" class="btn">
+                Save &amp; Next &#8594;
+              </button>
+            {% else %}
+              <button type="submit" name="action" value="finish" class="btn">
+                Save &amp; Finish
+              </button>
+            {% endif %}
+          </div>
+        {% endif %}
+
+      </form>
+    </div>
+
+  {% endif %}
+
+</div>
+
+<footer>
+  <p>Young Scientist Academy &mdash; Lesson Database</p>
+</footer>
+
+<script>
+  /* ── Data table ── */
+  function _esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function initTable(id, teacherHeaders, savedData) {
+    var headers, rows;
+    if (savedData && savedData.headers && savedData.headers.length > 0) {
+      headers = savedData.headers;
+      rows = savedData.rows || [];
+    } else if (teacherHeaders && teacherHeaders.length > 0) {
+      headers = teacherHeaders;
+      rows = [];
+    } else {
+      headers = ['', ''];
+      rows = [];
+    }
+    if (rows.length === 0) rows = [headers.map(function() { return ''; })];
+
+    var headRow = document.getElementById('dt-head-' + id);
+    headRow.innerHTML = '';
+    headers.forEach(function(h, i) {
+      headRow.appendChild(_makeHeaderCell(id, h, i));
+    });
+    headRow.appendChild(_makeDelColHeaderCell());
+
+    var tbody = document.getElementById('dt-body-' + id);
+    tbody.innerHTML = '';
+    rows.forEach(function(row) { _appendRow(id, row); });
+  }
+
+  function _makeHeaderCell(id, value, colIdx) {
+    var th = document.createElement('th');
+    th.innerHTML = '<div class="th-wrap"><input class="header-cell-inp" type="text" value="' + _esc(value) + '" placeholder="Column ' + (colIdx+1) + '…"><button type="button" class="del-col-btn" title="Delete column" onclick="deleteTableCol(this,\'' + id + '\')">&#x2715;</button></div>';
+    return th;
+  }
+
+  function deleteTableCol(btn, id) {
+    var headRow = document.getElementById('dt-head-' + id);
+    var tbody = document.getElementById('dt-body-' + id);
+    var ths = Array.from(headRow.children);
+    var th = btn.closest('th');
+    var colIdx = ths.indexOf(th);
+    if (colIdx === -1) return;
+    th.remove();
+    tbody.querySelectorAll('.data-row').forEach(function(tr) {
+      var cells = tr.children;
+      if (cells[colIdx]) cells[colIdx].remove();
+    });
+  }
+
+  function _makeDelColHeaderCell() {
+    var th = document.createElement('th');
+    th.style.width = '28px';
+    return th;
+  }
+
+  function _appendRow(id, values) {
+    var headRow = document.getElementById('dt-head-' + id);
+    var colCount = headRow.querySelectorAll('.header-cell-inp').length;
+    var tbody = document.getElementById('dt-body-' + id);
+    var tr = document.createElement('tr');
+    tr.className = 'data-row';
+    for (var i = 0; i < colCount; i++) {
+      var td = document.createElement('td');
+      var val = (values && values[i] !== undefined) ? values[i] : '';
+      td.innerHTML = '<input class="cell-inp" type="text" value="' + _esc(val) + '" placeholder="…">';
+      tr.appendChild(td);
+    }
+    var delTd = document.createElement('td');
+    delTd.style.width = '28px';
+    delTd.innerHTML = '<button type="button" class="del-row-btn" onclick="this.closest(\'tr\').remove()">&#x2715;</button>';
+    tr.appendChild(delTd);
+    tbody.appendChild(tr);
+  }
+
+  function addTableRow(id) {
+    _appendRow(id, null);
+  }
+
+  function addTableCol(id) {
+    var headRow = document.getElementById('dt-head-' + id);
+    var colCount = headRow.querySelectorAll('.header-cell-inp').length;
+    var lastTh = headRow.lastElementChild;
+    headRow.insertBefore(_makeHeaderCell(id, '', colCount), lastTh);
+
+    var tbody = document.getElementById('dt-body-' + id);
+    tbody.querySelectorAll('.data-row').forEach(function(tr) {
+      var td = document.createElement('td');
+      td.innerHTML = '<input class="cell-inp" type="text" placeholder="…">';
+      tr.insertBefore(td, tr.lastElementChild);
+    });
+  }
+
+  function captureTableData(id) {
+    var headRow = document.getElementById('dt-head-' + id);
+    var tbody = document.getElementById('dt-body-' + id);
+    if (!headRow) return;
+    var headers = [];
+    headRow.querySelectorAll('.header-cell-inp').forEach(function(inp) { headers.push(inp.value); });
+    var rows = [];
+    tbody.querySelectorAll('.data-row').forEach(function(tr) {
+      var cells = [];
+      tr.querySelectorAll('.cell-inp').forEach(function(inp) { cells.push(inp.value); });
+      rows.push(cells);
+    });
+    document.getElementById('table-data-' + id).value = JSON.stringify({headers: headers, rows: rows});
+  }
+
+  function captureAllTables() {
+    document.querySelectorAll('[id^="table-data-"]').forEach(function(inp) {
+      captureTableData(inp.id.replace('table-data-', ''));
+    });
+  }
+
+  /* ── Video recorder ── */
+  const _recState = {};
+
+  function _bestMime() {
+    const types = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+    for (const t of types) { if (MediaRecorder.isTypeSupported(t)) return t; }
+    return 'video/webm';
+  }
+
+  async function startRec(id) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const vidEl = document.getElementById('vid-' + id);
+      vidEl.srcObject = stream;
+      vidEl.muted = true;
+      vidEl.play();
+
+      const mime = _bestMime();
+      const mr = new MediaRecorder(stream, { mimeType: mime });
+      const chunks = [];
+      mr.ondataavailable = function(e) { if (e.data.size > 0) chunks.push(e.data); };
+      mr.onstop = function() {
+        stream.getTracks().forEach(function(t) { t.stop(); });
+        const blob = new Blob(chunks, { type: mime });
+        const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+
+        vidEl.srcObject = null;
+        vidEl.src = URL.createObjectURL(blob);
+        vidEl.muted = false;
+        vidEl.controls = true;
+
+        const file = new File([blob], 'response_' + id + '.' + ext, { type: mime });
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        document.getElementById('file-' + id).files = dt.files;
+
+        document.getElementById('discard-' + id).style.display = '';
+        document.getElementById('rec-status-' + id).style.display = 'none';
+      };
+      mr.start();
+      _recState[id] = { mr: mr, stream: stream };
+
+      document.getElementById('start-' + id).disabled = true;
+      document.getElementById('stop-' + id).disabled = false;
+      document.getElementById('discard-' + id).style.display = 'none';
+      document.getElementById('rec-status-' + id).style.display = '';
+    } catch(err) {
+      alert('Camera access was denied or is not available:\n' + err.message);
+    }
+  }
+
+  function stopRec(id) {
+    if (_recState[id]) {
+      _recState[id].mr.stop();
+      delete _recState[id];
+      document.getElementById('start-' + id).disabled = false;
+      document.getElementById('stop-' + id).disabled = true;
+    }
+  }
+
+  function discardRec(id) {
+    const vidEl = document.getElementById('vid-' + id);
+    vidEl.src = '';
+    vidEl.controls = false;
+    vidEl.muted = true;
+    document.getElementById('file-' + id).value = '';
+    document.getElementById('discard-' + id).style.display = 'none';
+  }
+
+  /* Run queued table inits now that all functions are defined */
+  (window._dtInits || []).forEach(function(a) { initTable(a[0], a[1], a[2]); });
+</script>
+</body>
+</html>

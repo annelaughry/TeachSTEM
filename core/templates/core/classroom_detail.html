@@ -1,0 +1,158 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ classroom.name }} — Lesson Database</title>
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/teacher/" style="color:#fff; text-decoration:none; font-size:0.9rem;">&#8592; Teacher Dashboard</a>
+  <span class="navbar-brand">{{ classroom.name }}</span>
+  <form method="post" action="/logout/" style="margin:0; display:inline;">{% csrf_token %}<button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:0.9rem;padding:0;">Log out</button></form>
+</nav>
+
+<div class="container" style="margin-top:100px;">
+
+  <!-- Classroom info -->
+  <div class="hero-section" style="text-align:left;">
+    <h1>{{ classroom.name }}</h1>
+    <p>
+      Share this code with your students so they can join:
+      <span style="font-family:monospace; font-size:1.6rem; font-weight:bold; color:#ff5c77; letter-spacing:0.15em;">{{ classroom.code }}</span>
+    </p>
+  </div>
+
+  <!-- Students -->
+  <div style="margin-bottom:2rem;">
+    <span class="section-title">Students ({{ classroom.students.count }})</span>
+    {% if classroom.students.exists %}
+      <ul style="list-style:none; padding:0; margin-top:0.75rem;">
+        {% for student in classroom.students.all %}
+          <li class="list-group-item" style="padding:0.6rem 1rem;">
+            {{ student.get_full_name|default:student.username }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p style="color:#888; font-style:italic; margin-top:0.5rem;">No students have joined yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Assigned activities -->
+  <span class="section-title">Assigned Activities</span>
+
+  {% with activities=classroom.assigned_activities.all %}
+    {% if activities %}
+      <div style="margin-top:0.75rem;">
+        {% for activity in activities %}
+          <div class="card" style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+            <div style="flex:1;">
+              <a href="/activity/{{ activity.pk }}/"
+                 style="font-weight:bold; color:#ff5c77; text-decoration:none; font-size:1rem;">
+                {{ activity.title }}
+              </a>
+              <p style="margin:0.2rem 0 0; font-size:0.82rem; color:#888;">
+                {{ activity.get_activity_type_display }}
+                {% for g in activity.grade_levels.all %}&middot; {{ g.name }}{% endfor %}
+                {% if activity.sections.exists %}&middot; {{ activity.sections.count }} section{{ activity.sections.count|pluralize }}{% endif %}
+              </p>
+              {% if activity.description %}
+                <p style="margin:0.4rem 0 0; font-size:0.9rem; color:#555;">{{ activity.description|truncatewords:20 }}</p>
+              {% endif %}
+            </div>
+            <div style="flex-shrink:0;">
+              <a href="/teacher/activity/{{ activity.pk }}/responses/"
+                 style="font-size:0.8rem; color:#ff5c77; text-decoration:none; margin-right:0.75rem;">
+                View Responses
+              </a>
+              <form method="post" style="display:inline;"
+                    onsubmit="return confirm('Remove {{ activity.title }} from this classroom?');">
+                {% csrf_token %}
+                <input type="hidden" name="remove_activity" value="{{ activity.pk }}">
+                <button type="submit"
+                  style="background:none; border:1px solid #e74c3c; color:#e74c3c; border-radius:5px;
+                         padding:4px 10px; cursor:pointer; font-size:0.78rem;">
+                  Remove
+                </button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="color:#888; font-style:italic; margin-top:0.5rem;">
+        No activities assigned yet. Open an activity from the
+        <a href="/" style="color:#ff5c77;">lesson library</a> to assign it to this classroom.
+      </p>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Assigned modules -->
+  <div style="margin-top:2rem;">
+    <span class="section-title">Assigned Modules</span>
+
+    {% with modules=classroom.assigned_modules.all %}
+      {% if modules %}
+        <div style="margin-top:0.75rem;">
+          {% for module in modules %}
+            <div class="card" style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+              <div style="flex:1;">
+                <a href="/teacher/module/{{ module.pk }}/"
+                   style="font-weight:bold; color:#ff5c77; text-decoration:none; font-size:1rem;">
+                  &#128203; {{ module.title }}
+                </a>
+                <p style="margin:0.2rem 0 0; font-size:0.82rem; color:#888;">
+                  {{ module.module_activities.count }} activit{{ module.module_activities.count|pluralize:"y,ies" }}
+                </p>
+                {% if module.description %}
+                  <p style="margin:0.4rem 0 0; font-size:0.9rem; color:#555;">{{ module.description|truncatewords:20 }}</p>
+                {% endif %}
+              </div>
+              <div style="flex-shrink:0;">
+                <form method="post" style="display:inline;"
+                      onsubmit="return confirm('Remove {{ module.title }} from this classroom?');">
+                  {% csrf_token %}
+                  <input type="hidden" name="remove_module" value="{{ module.pk }}">
+                  <button type="submit"
+                    style="background:none; border:1px solid #e74c3c; color:#e74c3c; border-radius:5px;
+                           padding:4px 10px; cursor:pointer; font-size:0.78rem;">
+                    Remove
+                  </button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="color:#888; font-style:italic; margin-top:0.5rem;">
+          No modules assigned yet. Open a module from
+          <a href="/teacher/modules/" style="color:#ff5c77;">My Modules</a> to assign it here.
+        </p>
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- Delete classroom -->
+  <div style="margin-top:3rem; padding-top:1.5rem; border-top:1px solid #eee;">
+    <form method="post" action="/teacher/classroom/{{ classroom.pk }}/delete/"
+          onsubmit="return confirm('Delete {{ classroom.name }}? This cannot be undone.');">
+      {% csrf_token %}
+      <button type="submit"
+        style="background:none; border:1px solid #e74c3c; color:#e74c3c; border-radius:6px;
+               padding:7px 16px; cursor:pointer; font-size:0.85rem;">
+        Delete this classroom
+      </button>
+    </form>
+  </div>
+
+</div>
+
+<footer>
+  <p>Young Scientist Academy &mdash; Lesson Database</p>
+</footer>
+
+</body>
+</html>

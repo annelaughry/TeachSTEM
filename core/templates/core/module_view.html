@@ -1,0 +1,176 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ module.title }} — Lesson Database</title>
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+  <style>
+    .activity-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.9rem;
+      border-radius: 10px;
+      padding: 0.85rem 1.1rem;
+      margin-bottom: 0.65rem;
+      border: 2px solid #ffe6f0;
+      background: #fff;
+      transition: opacity 0.15s;
+    }
+    .activity-row.completed {
+      border-color: #c8e6c9;
+      background: #f9fffe;
+    }
+    .activity-row.locked {
+      border-color: #e0e0e0;
+      background: #fafafa;
+      opacity: 0.75;
+    }
+    .activity-num {
+      font-size: 1.2rem;
+      font-weight: 700;
+      min-width: 2rem;
+      text-align: right;
+      padding-top: 0.1rem;
+      flex-shrink: 0;
+    }
+    .activity-row.completed .activity-num { color: #2e7d32; }
+    .activity-row.locked   .activity-num { color: #bbb; }
+    .activity-row:not(.completed):not(.locked) .activity-num { color: #ff5c77; }
+    .activity-info { flex: 1; min-width: 0; }
+    .activity-title {
+      font-weight: 700;
+      font-size: 1rem;
+      margin: 0 0 0.2rem;
+    }
+    .activity-row.locked .activity-title { color: #aaa; }
+    .activity-row.completed .activity-title { color: #2e7d32; }
+    .activity-row:not(.completed):not(.locked) .activity-title { color: #333; }
+    .activity-meta { font-size: 0.78rem; color: #888; margin-bottom: 0.3rem; }
+    .activity-desc { font-size: 0.86rem; color: #666; margin: 0.2rem 0 0.55rem; }
+    .lock-msg {
+      font-size: 0.83rem;
+      color: #aaa;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-top: 0.4rem;
+    }
+    .complete-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #2e7d32;
+      background: #e8f5e9;
+      border-radius: 20px;
+      padding: 2px 10px;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="{% if is_teacher %}/teacher/{% else %}/student/{% endif %}"
+     style="color:#fff; text-decoration:none; font-size:0.9rem;">
+    &#8592; {% if is_teacher %}Teacher Dashboard{% else %}My Classrooms{% endif %}
+  </a>
+  <span class="navbar-brand">{{ module.title }}</span>
+  <form method="post" action="/logout/" style="margin:0; display:inline;">{% csrf_token %}<button type="submit" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:0.9rem;padding:0;">Log out</button></form>
+</nav>
+
+<div class="container" style="margin-top:100px; max-width:700px;">
+
+  <div class="hero-section" style="text-align:left; margin-bottom:1.5rem;">
+    <h1>{{ module.title }}</h1>
+    {% if module.description %}
+      <p style="color:#555; margin:0.4rem 0 0;">{{ module.description }}</p>
+    {% endif %}
+    <p style="font-size:0.85rem; color:#aaa; margin:0.5rem 0 0;">
+      {{ activities_data|length }} activit{{ activities_data|length|pluralize:"y,ies" }}
+      {% if not is_teacher %}&mdash; complete in order{% endif %}
+    </p>
+  </div>
+
+  {% for item in activities_data %}
+    {% if item.is_locked %}
+      <div class="activity-row locked">
+        <div class="activity-num">{{ forloop.counter }}</div>
+        <div class="activity-info">
+          <div class="activity-title">{{ item.ma.activity.title }}</div>
+          <div class="activity-meta">
+            {{ item.ma.activity.get_activity_type_display }}
+            {% for g in item.ma.activity.grade_levels.all %}&middot; {{ g.name }}{% endfor %}
+            {% if item.ma.activity.duration_minutes %}&middot; {{ item.ma.activity.duration_minutes }} min{% endif %}
+          </div>
+          <div class="lock-msg">
+            &#128274; Complete the previous activity to unlock this one.
+          </div>
+        </div>
+      </div>
+
+    {% elif item.is_complete %}
+      <div class="activity-row completed">
+        <div class="activity-num">&#10003;</div>
+        <div class="activity-info">
+          <div class="complete-badge">&#10003; Completed</div>
+          <div class="activity-title">{{ item.ma.activity.title }}</div>
+          <div class="activity-meta">
+            {{ item.ma.activity.get_activity_type_display }}
+            {% for g in item.ma.activity.grade_levels.all %}&middot; {{ g.name }}{% endfor %}
+            {% if item.ma.activity.duration_minutes %}&middot; {{ item.ma.activity.duration_minutes }} min{% endif %}
+          </div>
+          {% if item.ma.activity.description %}
+            <div class="activity-desc">{{ item.ma.activity.description|truncatewords:20 }}</div>
+          {% endif %}
+          <a href="/activity/{{ item.ma.activity.pk }}/work/"
+             class="btn btn-secondary"
+             style="font-size:0.82rem; padding:5px 14px; text-decoration:none;">
+            Revisit
+          </a>
+        </div>
+      </div>
+
+    {% else %}
+      <div class="activity-row">
+        <div class="activity-num">{{ forloop.counter }}</div>
+        <div class="activity-info">
+          <div class="activity-title">{{ item.ma.activity.title }}</div>
+          <div class="activity-meta">
+            {{ item.ma.activity.get_activity_type_display }}
+            {% for g in item.ma.activity.grade_levels.all %}&middot; {{ g.name }}{% endfor %}
+            {% if item.ma.activity.duration_minutes %}&middot; {{ item.ma.activity.duration_minutes }} min{% endif %}
+          </div>
+          {% if item.ma.activity.description %}
+            <div class="activity-desc">{{ item.ma.activity.description|truncatewords:20 }}</div>
+          {% endif %}
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.4rem;">
+            <a href="/activity/{{ item.ma.activity.pk }}/work/" class="btn"
+               style="font-size:0.85rem; padding:6px 14px; text-decoration:none;">
+              Work on this Activity
+            </a>
+            {% if item.ma.activity.instructions_pdf %}
+              <a href="{{ item.ma.activity.instructions_pdf.url }}" target="_blank"
+                 class="btn btn-secondary"
+                 style="font-size:0.85rem; padding:6px 14px; text-decoration:none;">
+                Download PDF
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  {% empty %}
+    <p style="color:#aaa; font-style:italic;">This module has no activities yet.</p>
+  {% endfor %}
+
+</div>
+
+<footer>
+  <p>Young Scientist Academy &mdash; Lesson Database</p>
+</footer>
+
+</body>
+</html>
