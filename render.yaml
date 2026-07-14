@@ -2,13 +2,13 @@ databases:
   - name: ysa-lessons-db
     databaseName: lessons
     user: lessons
-    plan: starter
+    plan: free
 
 services:
   - type: web
     name: ysa-lessons-api
     env: python
-    plan: starter
+    plan: free
     rootDir: .
     buildCommand: >
       pip install -r requirements.txt &&
