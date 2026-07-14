@@ -2,18 +2,17 @@ databases:
   - name: ysa-lessons-db
     databaseName: lessons
     user: lessons
-    plan: starter   # free tier expires after 90 days; starter is $7/mo
+    plan: starter
 
 services:
-
-  # ── Django API ────────────────────────────────────────────────────────────
   - type: web
-    name: ysa-lessons-api            # → ysa-lessons-api.onrender.com
+    name: ysa-lessons-api
     env: python
-    plan: starter                    # starter stays up; free spins down after 15 min
+    plan: starter
     rootDir: .
     buildCommand: >
       pip install -r requirements.txt &&
+      cd frontend && npm install && npm run build && cd .. &&
       python manage.py collectstatic --noinput &&
       python manage.py migrate
     startCommand: gunicorn lessons.wsgi:application --workers 2 --timeout 120
@@ -25,11 +24,9 @@ services:
       - key: DJANGO_DEBUG
         value: "False"
 
-      # Update this after the service is created if the name changes.
       - key: DJANGO_ALLOWED_HOSTS
         value: ysa-lessons-api.onrender.com
 
-      # Database — pulled automatically from the database above.
       - key: DB_HOST
         fromDatabase:
           name: ysa-lessons-db
@@ -53,18 +50,10 @@ services:
       - key: DB_SSLMODE
         value: require
 
-      # Allow the React static site to call this API.
-      # Update with your custom domain once one is added.
-      - key: CORS_ALLOWED_ORIGINS
-        value: https://ysa-lessons.onrender.com
-      - key: CSRF_TRUSTED_ORIGINS
-        value: https://ysa-lessons-api.onrender.com
-
       - key: DJANGO_SECURE_SSL_REDIRECT
         value: "True"
 
-      # S3 for media uploads (videos, PDFs).
-      # Set these manually in the Render dashboard — do not put real values here.
+      # S3 for media uploads — set these manually in the Render dashboard.
       - key: AWS_STORAGE_BUCKET_NAME
         sync: false
       - key: AWS_S3_REGION_NAME
@@ -73,20 +62,3 @@ services:
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
-
-  # ── React static site ─────────────────────────────────────────────────────
-  - type: static
-    name: ysa-lessons                # → ysa-lessons.onrender.com
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      # Must match the web service URL above.
-      # Baked into the JS bundle at build time by Vite.
-      - key: VITE_API_BASE_URL
-        value: https://ysa-lessons-api.onrender.com
-    routes:
-      # Send all paths to index.html so React Router handles them.
-      - type: rewrite
-        source: /*
-        destination: /index.html
