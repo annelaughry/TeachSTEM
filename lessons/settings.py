@@ -184,11 +184,6 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Serve the React build (frontend/dist/) from the root URL via whitenoise.
-# JS/CSS assets are served directly; unknown paths fall through to Django's
-# catch-all URL which returns index.html so React Router can handle them.
-WHITENOISE_ROOT = BASE_DIR / 'frontend' / 'dist'
-
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/teacher/'
 

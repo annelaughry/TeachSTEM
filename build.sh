@@ -2,8 +2,6 @@
 set -e
 
 # --- Node.js ---
-# Render's Python environment doesn't include Node. Download it once;
-# subsequent builds reuse the cached binary if Render preserves $HOME.
 NODE_VERSION="20.11.0"
 NODE_BIN="$HOME/.local/node/bin"
 export PATH="$NODE_BIN:$PATH"
@@ -19,9 +17,11 @@ echo "Node: $(node --version)  npm: $(npm --version)"
 # --- React build ---
 echo "--- Building React frontend ---"
 cd frontend
-npm ci
+npm install
 npm run build
 cd ..
+echo "--- React dist contents: ---"
+ls frontend/dist/
 
 # --- Python ---
 echo "--- Installing Python dependencies ---"
@@ -29,6 +29,15 @@ pip install -r requirements.txt
 
 echo "--- Collecting Django static files ---"
 python manage.py collectstatic --noinput
+
+# Copy the React build into staticfiles/ so it is available at runtime.
+# frontend/dist/ lives in the build environment; staticfiles/ is the
+# directory whitenoise serves from and is guaranteed to persist.
+echo "--- Copying React build into staticfiles/ ---"
+cp frontend/dist/index.html staticfiles/index.html
+cp -r frontend/dist/assets staticfiles/assets
+cp -r frontend/dist/fonts  staticfiles/fonts
+cp    frontend/dist/logo.png staticfiles/logo.png
 
 echo "--- Running database migrations ---"
 python manage.py migrate
