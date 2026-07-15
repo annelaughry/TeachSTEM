@@ -11,7 +11,7 @@ def _react_app(request, **kwargs):
     if index.exists():
         return FileResponse(open(index, 'rb'), content_type='text/html')
     return HttpResponse(
-        f'Frontend not built. Looked for: {index}',
+        'Frontend not built.',
         status=503,
     )
 

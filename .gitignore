@@ -17,7 +17,7 @@ staticfiles/
 
 # Frontend
 frontend/node_modules/
-# frontend/dist/ — committed to git so Render can serve it without a Node build step
+frontend/dist/
 
 # Editors / OS
 .DS_Store
