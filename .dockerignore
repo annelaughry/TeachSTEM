@@ -9,7 +9,7 @@ db.sqlite3
 media/
 staticfiles/
 node_modules/
-frontend/
+frontend/node_modules/
 .git/
 .github/
 *.md

@@ -184,6 +184,10 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Whitenoise serves frontend/dist/ at the root URL (no /static/ prefix).
+# The catch-all URL returns index.html for React Router paths.
+WHITENOISE_ROOT = BASE_DIR / 'frontend' / 'dist'
+
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/teacher/'
 

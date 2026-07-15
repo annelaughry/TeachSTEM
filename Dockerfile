@@ -1,6 +1,3 @@
-# Django API image. The React app is built separately and deployed to
-# S3 + CloudFront (see DEPLOYMENT.md) -- it does not live in this image.
-
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -9,19 +6,28 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# System deps: none needed beyond what's in the slim image, since
-# psycopg[binary] ships its own libpq.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
+# System deps + Node.js 20
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
+# Python deps (own layer so they cache independently of app code)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# npm deps (own layer so they cache independently of frontend source)
+COPY frontend/package*.json ./frontend/
+RUN npm ci --prefix frontend
+
+# Full source (frontend/node_modules excluded via .dockerignore)
 COPY . .
 
-# Static assets (Django admin CSS, DRF browsable API CSS, etc.) don't
-# need a live DB, so bake them into the image at build time.
+# Build React — creates frontend/dist/ inside the image
+RUN npm run build --prefix frontend
+
+# Django static files (admin CSS, etc.) baked into the image
 RUN python manage.py collectstatic --noinput
 
 RUN chmod +x docker-entrypoint.sh \
