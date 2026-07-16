@@ -84,6 +84,11 @@ class Activity(models.Model):
     materials = models.TextField(blank=True)
     instructions_pdf = models.FileField(upload_to='activity_pdfs/', blank=True, null=True)
     video_url = models.URLField(blank=True, default='')
+    is_restricted = models.BooleanField(default=False, help_text='If true, hidden from library; only visible to assigned Teach STEM teachers.')
+    restricted_teachers = models.ManyToManyField(
+        User, blank=True, related_name='restricted_activities',
+        help_text='Teach STEM teachers who can access this restricted activity.',
+    )
     standards = models.ManyToManyField(Standard, blank=True, related_name='activities')
     concepts = models.ManyToManyField(Concept, blank=True, related_name='activities')
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_activities')

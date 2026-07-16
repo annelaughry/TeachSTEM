@@ -31,12 +31,14 @@ function formatDate(dateStr) {
 }
 
 export default function TeachSTEMDashboard() {
-  const [tasks, setTasks]           = useState([])
-  const [toggling, setToggling]     = useState({})
-  const [showDone, setShowDone]     = useState(false)
+  const [tasks, setTasks]                       = useState([])
+  const [toggling, setToggling]                 = useState({})
+  const [showDone, setShowDone]                 = useState(false)
+  const [assignedActivities, setAssignedActivities] = useState([])
 
   useEffect(() => {
     api.get('teach-stem/tasks/').then(r => setTasks(r.data)).catch(() => {})
+    api.get('teach-stem/assigned-activities/').then(r => setAssignedActivities(r.data)).catch(() => {})
   }, [])
 
   const markComplete = async (taskId) => {
@@ -188,6 +190,44 @@ export default function TeachSTEMDashboard() {
             color="var(--teal-dark)"
           />
         </div>
+
+        {/* Assigned Activities */}
+        {assignedActivities.length > 0 && (
+          <>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <h2 style={{ color: 'var(--teal-dark)', marginBottom: '0.25rem' }}>Assigned Activities</h2>
+              <p className="text-muted" style={{ marginBottom: 0 }}>
+                Activities assigned to you by Young Scientist Academy — not in the public library.
+              </p>
+            </div>
+            <div style={{ marginBottom: '2rem' }}>
+              {assignedActivities.map(act => (
+                <Link key={act.id} to={`/activity/${act.id}`} style={{ textDecoration: 'none' }}>
+                  <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.6rem', borderLeft: '4px solid var(--teal)', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 18px rgba(0,0,0,0.1)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = ''}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.97rem', color: 'var(--text)' }}>{act.title}</div>
+                      {act.description && (
+                        <p className="text-muted text-sm" style={{ marginBottom: 0, marginTop: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {act.description}
+                        </p>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', justifyContent: 'flex-end', flexShrink: 0 }}>
+                      {act.grade_levels.map(g => (
+                        <span key={g.id} className="badge badge--gray">{g.name}</span>
+                      ))}
+                      {act.duration_minutes > 0 && (
+                        <span className="badge badge--gray">{act.duration_minutes} min</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Feedback */}
         <div style={{ marginBottom: '1.25rem' }}>

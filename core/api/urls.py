@@ -62,6 +62,8 @@ urlpatterns = [
     path('teach-stem/project-topics/<int:pk>/submit/', views.api_project_topic_submit, name='api_project_topic_submit'),
     path('admin/project-topics/', views.api_admin_project_topics, name='api_admin_project_topics'),
     path('admin/project-topics/<int:pk>/feedback/', views.api_admin_project_topic_feedback, name='api_admin_project_topic_feedback'),
+    path('admin/teach-stem-teachers/', views.api_admin_teach_stem_teachers, name='api_admin_teach_stem_teachers'),
+    path('teach-stem/assigned-activities/', views.api_teach_stem_assigned_activities, name='api_teach_stem_assigned_activities'),
 
     # 3-2-1 Formative Assessment
     path('321/assignments/', views.api_321_assignments, name='api_321_assignments'),

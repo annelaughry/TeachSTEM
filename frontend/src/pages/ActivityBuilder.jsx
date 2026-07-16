@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useAuth } from '../AuthContext'
 import api from '../api'
 
 let _gk = 0
@@ -18,6 +19,8 @@ export default function ActivityBuilder() {
   const { id } = useParams()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const isAdmin = user?.is_staff || user?.is_superuser
 
   const [title, setTitle]           = useState('')
   const [description, setDescription] = useState('')
@@ -27,6 +30,9 @@ export default function ActivityBuilder() {
   const [gradeIds, setGradeIds]     = useState([])
   const [sections, setSections]     = useState([mkSection()])
   const [videoUrl, setVideoUrl]           = useState('')
+  const [isRestricted, setIsRestricted]   = useState(false)
+  const [restrictedTeacherIds, setRestrictedTeacherIds] = useState([])
+  const [teachStemTeachers, setTeachStemTeachers] = useState([])
   const [existingFiles, setExistingFiles] = useState([])  // [{id, file, label}] from API
   const [newFiles, setNewFiles]     = useState([])        // [{file: File, label: string}]
   const fileInputRef                = useRef(null)
@@ -39,6 +45,7 @@ export default function ActivityBuilder() {
   useEffect(() => {
     api.get('grade-levels/').then(r => setGradeLevels(r.data))
     api.get('activity-types/').then(r => setActTypes(r.data))
+    if (isAdmin) api.get('admin/teach-stem-teachers/').then(r => setTeachStemTeachers(r.data)).catch(() => {})
     if (!isEdit) return
     api.get(`activities/${id}/`).then(r => {
       const a = r.data
@@ -49,6 +56,8 @@ export default function ActivityBuilder() {
       setDuration(a.duration_minutes || '')
       setGradeIds(a.grade_levels.map(g => g.id))
       setVideoUrl(a.video_url || '')
+      setIsRestricted(a.is_restricted || false)
+      setRestrictedTeacherIds(a.restricted_teacher_ids || [])
       setExistingFiles(a.handout_files || [])
       setActStatus(a.status)
       if (a.sections?.length) {
@@ -147,6 +156,8 @@ export default function ActivityBuilder() {
       links: sec.links.map(l => ({ url: l.url, label: l.label })),
     }))))
     fd.append('video_url', videoUrl)
+    fd.append('is_restricted', isRestricted ? 'true' : 'false')
+    fd.append('restricted_teacher_ids', JSON.stringify(restrictedTeacherIds))
     fd.append('keep_file_ids', JSON.stringify(existingFiles.map(f => f.id)))
     newFiles.forEach(f => {
       fd.append('handout_files', f.file)
@@ -260,6 +271,44 @@ export default function ActivityBuilder() {
             <input className="form-input" type="url" value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
               placeholder="YouTube or Vimeo URL — shown to students before they begin" />
           </div>
+
+          {isAdmin && (
+            <div className="form-group" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={isRestricted} onChange={e => setIsRestricted(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: 'var(--pink)', flexShrink: 0 }} />
+                <span className="form-label" style={{ margin: 0 }}>Restrict from library — assign to specific Teach STEM teachers only</span>
+              </label>
+              {isRestricted && (
+                <div style={{ marginTop: '0.85rem' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                    Select teachers who can access this activity:
+                  </div>
+                  {teachStemTeachers.length === 0 ? (
+                    <p className="text-muted text-sm">No approved Teach STEM teachers found.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                      {teachStemTeachers.map(t => {
+                        const selected = restrictedTeacherIds.includes(t.id)
+                        return (
+                          <button key={t.id} type="button"
+                            onClick={() => setRestrictedTeacherIds(prev =>
+                              selected ? prev.filter(x => x !== t.id) : [...prev, t.id]
+                            )}
+                            style={{ padding: '0.3rem 0.85rem', borderRadius: 20, border: '2px solid', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', transition: 'all 0.15s',
+                              background: selected ? 'var(--pink)' : '#fff',
+                              borderColor: selected ? 'var(--pink)' : 'var(--border)',
+                              color: selected ? '#fff' : 'var(--text)' }}>
+                            {t.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Files & Handouts */}

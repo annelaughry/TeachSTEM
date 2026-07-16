@@ -115,7 +115,7 @@ def api_activity_list(request):
     activity_type = request.query_params.get('type', '')
     standard = request.query_params.get('standard', '')
 
-    qs = Activity.objects.filter(status='approved').prefetch_related('grade_levels', 'standards')
+    qs = Activity.objects.filter(status='approved', is_restricted=False).prefetch_related('grade_levels', 'standards')
 
     if q:
         qs = qs.filter(
@@ -144,9 +144,11 @@ def api_activity_detail(request, pk):
     except Activity.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
 
+    is_admin = request.user.is_staff or request.user.is_superuser
+    is_assigned = activity.restricted_teachers.filter(pk=request.user.pk).exists()
     if not (activity.status == 'approved' or
             activity.created_by == request.user or
-            request.user.is_staff or request.user.is_superuser):
+            is_admin or is_assigned):
         return Response({'error': 'Not found.'}, status=404)
 
     return Response(ActivityDetailSerializer(activity).data)
@@ -177,6 +179,7 @@ def api_activity_create(request):
         activity_type=request.data.get('activity_type', 'challenge'),
         duration_minutes=int(request.data.get('duration_minutes', 0) or 0),
         video_url=request.data.get('video_url', ''),
+        is_restricted=request.data.get('is_restricted', 'false').lower() == 'true',
         created_by=request.user,
         status='draft',
     )
@@ -185,6 +188,15 @@ def api_activity_create(request):
     if isinstance(grade_ids, str):
         grade_ids = [grade_ids]
     activity.grade_levels.set(grade_ids)
+
+    restricted_ids = request.data.getlist('restricted_teacher_ids') if hasattr(request.data, 'getlist') else request.data.get('restricted_teacher_ids', [])
+    if isinstance(restricted_ids, str):
+        import json as _json
+        try:
+            restricted_ids = _json.loads(restricted_ids)
+        except Exception:
+            restricted_ids = [restricted_ids] if restricted_ids else []
+    activity.restricted_teachers.set(restricted_ids)
 
     if request.FILES.get('instructions_pdf'):
         activity.instructions_pdf = request.FILES['instructions_pdf']
@@ -223,6 +235,8 @@ def api_activity_edit(request, pk):
     activity.activity_type = request.data.get('activity_type', activity.activity_type)
     activity.duration_minutes = int(request.data.get('duration_minutes', activity.duration_minutes) or 0)
     activity.video_url = request.data.get('video_url', activity.video_url)
+    if 'is_restricted' in request.data:
+        activity.is_restricted = request.data.get('is_restricted', 'false').lower() == 'true'
 
     grade_ids = request.data.getlist('grade_levels') if hasattr(request.data, 'getlist') else request.data.get('grade_levels', [])
     if isinstance(grade_ids, str):
@@ -238,6 +252,15 @@ def api_activity_edit(request, pk):
             activity.instructions_pdf = None
 
     activity.save()
+
+    if 'restricted_teacher_ids' in request.data:
+        restricted_ids = request.data.getlist('restricted_teacher_ids') if hasattr(request.data, 'getlist') else request.data.get('restricted_teacher_ids', [])
+        if isinstance(restricted_ids, str):
+            try:
+                restricted_ids = json.loads(restricted_ids)
+            except Exception:
+                restricted_ids = [restricted_ids] if restricted_ids else []
+        activity.restricted_teachers.set(restricted_ids)
 
     sections_json = request.data.get('sections_json')
     if sections_json is not None:
@@ -982,6 +1005,36 @@ def api_admin_project_topic_feedback(request, pk):
     sub.status = 'reviewed'
     sub.save()
     return Response(ProjectTopicSubmissionSerializer(sub).data)
+
+
+@api_view(['GET'])
+def api_admin_teach_stem_teachers(request):
+    """Return all approved Teach STEM teachers for the restricted-activity assignment UI."""
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    teachers = User.objects.filter(
+        teacher_profile__is_approved=True,
+        teacher_profile__teach_stem_approved=True,
+    ).order_by('last_name', 'first_name')
+    return Response([
+        {'id': t.id, 'name': t.get_full_name() or t.username, 'email': t.email}
+        for t in teachers
+    ])
+
+
+@api_view(['GET'])
+def api_teach_stem_assigned_activities(request):
+    """Return restricted activities that have been assigned to the current Teach STEM teacher."""
+    if not _teach_stem_required(request):
+        return Response({'error': 'Teach STEM access required.'}, status=403)
+    activities = Activity.objects.filter(
+        status='approved',
+        is_restricted=True,
+        restricted_teachers=request.user,
+    ).prefetch_related('grade_levels', 'standards')
+    return Response(ActivityListSerializer(activities, many=True).data)
 
 
 @api_view(['GET', 'POST'])
