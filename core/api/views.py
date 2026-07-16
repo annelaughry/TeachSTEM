@@ -176,6 +176,7 @@ def api_activity_create(request):
         materials=request.data.get('materials', ''),
         activity_type=request.data.get('activity_type', 'challenge'),
         duration_minutes=int(request.data.get('duration_minutes', 0) or 0),
+        video_url=request.data.get('video_url', ''),
         created_by=request.user,
         status='draft',
     )
@@ -221,6 +222,7 @@ def api_activity_edit(request, pk):
     activity.materials = request.data.get('materials', activity.materials)
     activity.activity_type = request.data.get('activity_type', activity.activity_type)
     activity.duration_minutes = int(request.data.get('duration_minutes', activity.duration_minutes) or 0)
+    activity.video_url = request.data.get('video_url', activity.video_url)
 
     grade_ids = request.data.getlist('grade_levels') if hasattr(request.data, 'getlist') else request.data.get('grade_levels', [])
     if isinstance(grade_ids, str):

@@ -26,6 +26,7 @@ export default function ActivityBuilder() {
   const [duration, setDuration]     = useState('')
   const [gradeIds, setGradeIds]     = useState([])
   const [sections, setSections]     = useState([mkSection()])
+  const [videoUrl, setVideoUrl]           = useState('')
   const [existingFiles, setExistingFiles] = useState([])  // [{id, file, label}] from API
   const [newFiles, setNewFiles]     = useState([])        // [{file: File, label: string}]
   const fileInputRef                = useRef(null)
@@ -47,6 +48,7 @@ export default function ActivityBuilder() {
       setActType(a.activity_type || 'challenge')
       setDuration(a.duration_minutes || '')
       setGradeIds(a.grade_levels.map(g => g.id))
+      setVideoUrl(a.video_url || '')
       setExistingFiles(a.handout_files || [])
       setActStatus(a.status)
       if (a.sections?.length) {
@@ -144,6 +146,7 @@ export default function ActivityBuilder() {
       prompts: sec.prompts.map(p => ({ text: p.text, prompt_type: p.prompt_type, response_type: p.response_type, table_headers: p.table_headers })),
       links: sec.links.map(l => ({ url: l.url, label: l.label })),
     }))))
+    fd.append('video_url', videoUrl)
     fd.append('keep_file_ids', JSON.stringify(existingFiles.map(f => f.id)))
     newFiles.forEach(f => {
       fd.append('handout_files', f.file)
@@ -251,6 +254,11 @@ export default function ActivityBuilder() {
           <div className="form-group">
             <label className="form-label">Materials Needed</label>
             <textarea className="form-input" rows={2} value={materials} onChange={e => setMaterials(e.target.value)} placeholder="List materials students will need…" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Intro Video</label>
+            <input className="form-input" type="url" value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
+              placeholder="YouTube or Vimeo URL — shown to students before they begin" />
           </div>
         </div>
 

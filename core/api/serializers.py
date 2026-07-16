@@ -86,7 +86,7 @@ class ActivityListSerializer(serializers.ModelSerializer):
         model = Activity
         fields = ['id', 'title', 'activity_type', 'grade_levels', 'duration_minutes',
                   'description', 'status', 'standards', 'created_by_name', 'created_at',
-                  'instructions_pdf']
+                  'instructions_pdf', 'video_url']
 
     def get_created_by_name(self, obj):
         if obj.created_by:

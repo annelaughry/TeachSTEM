@@ -3,6 +3,18 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import api from '../api'
 
+function toEmbedUrl(url) {
+  if (!url) return null
+  if (url.includes('youtube.com/embed/') || url.includes('player.vimeo.com/video/')) return url
+  const ytWatch = url.match(/[?&]v=([^&]+)/)
+  if (ytWatch) return `https://www.youtube.com/embed/${ytWatch[1]}`
+  const ytShort = url.match(/youtu\.be\/([^?&]+)/)
+  if (ytShort) return `https://www.youtube.com/embed/${ytShort[1]}`
+  const vimeo = url.match(/vimeo\.com\/(\d+)/)
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
+  return null
+}
+
 // ── Video recorder sub-component ────────────────────────────────────────────
 
 function VideoRecorder({ promptId, existingUrl, onSaved }) {
@@ -284,6 +296,19 @@ export default function StudentActivity() {
           )}
         </div>
       </div>
+
+      {/* Intro video */}
+      {toEmbedUrl(activity.video_url) && (
+        <div style={{ background: '#111', display: 'flex', justifyContent: 'center', padding: '1rem 0' }}>
+          <iframe
+            src={toEmbedUrl(activity.video_url)}
+            style={{ width: '100%', maxWidth: 760, aspectRatio: '16/9', border: 'none', display: 'block' }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title="Activity video"
+          />
+        </div>
+      )}
 
       {/* Progress bar */}
       {total > 1 && (

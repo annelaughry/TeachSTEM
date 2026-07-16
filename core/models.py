@@ -83,6 +83,7 @@ class Activity(models.Model):
     duration_minutes = models.PositiveIntegerField(default=0, help_text='Estimated time in minutes')
     materials = models.TextField(blank=True)
     instructions_pdf = models.FileField(upload_to='activity_pdfs/', blank=True, null=True)
+    video_url = models.URLField(blank=True, default='')
     standards = models.ManyToManyField(Standard, blank=True, related_name='activities')
     concepts = models.ManyToManyField(Concept, blank=True, related_name='activities')
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_activities')

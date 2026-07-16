@@ -1,4 +1,16 @@
 import { useState, useEffect } from 'react'
+
+function toEmbedUrl(url) {
+  if (!url) return null
+  if (url.includes('youtube.com/embed/') || url.includes('player.vimeo.com/video/')) return url
+  const ytWatch = url.match(/[?&]v=([^&]+)/)
+  if (ytWatch) return `https://www.youtube.com/embed/${ytWatch[1]}`
+  const ytShort = url.match(/youtu\.be\/([^?&]+)/)
+  if (ytShort) return `https://www.youtube.com/embed/${ytShort[1]}`
+  const vimeo = url.match(/vimeo\.com\/(\d+)/)
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
+  return null
+}
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import api from '../api'
@@ -218,6 +230,19 @@ export default function ActivityDetail() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* Intro video */}
+        {toEmbedUrl(activity.video_url) && (
+          <div style={{ marginBottom: '1.25rem', borderRadius: 12, overflow: 'hidden', background: '#111', aspectRatio: '16/9' }}>
+            <iframe
+              src={toEmbedUrl(activity.video_url)}
+              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              title="Activity video"
+            />
           </div>
         )}
 
