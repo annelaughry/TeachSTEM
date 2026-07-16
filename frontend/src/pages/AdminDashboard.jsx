@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from '../api'
 
 const BLANK_TASK = { title: '', description: '', due_date: '' }
@@ -14,6 +14,13 @@ export default function AdminDashboard() {
   const [savingFb, setSavingFb]         = useState({})
   const [savedFb, setSavedFb]           = useState({})
   const [expandedSub, setExpandedSub]   = useState(null)
+
+  // Teacher search state
+  const [teacherQuery, setTeacherQuery]   = useState('')
+  const [teachers, setTeachers]           = useState([])
+  const [teacherLoading, setTeacherLoading] = useState(false)
+  const [toggling, setToggling]           = useState({})
+  const teacherSearchTimeout              = useRef(null)
 
   // Tasks state
   const [tasks, setTasks]         = useState([])
@@ -45,6 +52,30 @@ export default function AdminDashboard() {
       setData(fresh)
     } finally {
       setActing(a => ({ ...a, [key]: false }))
+    }
+  }
+
+  const searchTeachers = (q) => {
+    setTeacherQuery(q)
+    clearTimeout(teacherSearchTimeout.current)
+    teacherSearchTimeout.current = setTimeout(async () => {
+      setTeacherLoading(true)
+      try {
+        const { data } = await api.get('admin/teachers/', { params: { q } })
+        setTeachers(data)
+      } finally {
+        setTeacherLoading(false)
+      }
+    }, 300)
+  }
+
+  const toggleTeachStem = async (teacher) => {
+    setToggling(t => ({ ...t, [teacher.id]: true }))
+    try {
+      const { data } = await api.post(`admin/teachers/${teacher.id}/toggle-teach-stem/`)
+      setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, teach_stem_approved: data.teach_stem_approved } : t))
+    } finally {
+      setToggling(t => ({ ...t, [teacher.id]: false }))
     }
   }
 
@@ -126,6 +157,51 @@ export default function AdminDashboard() {
                 </button>
               </div>
             ))
+          )}
+        </section>
+
+        {/* Teacher search */}
+        <section style={{ marginBottom: '2.5rem' }}>
+          <div className="section-title">All Teachers</div>
+          <p className="text-muted text-sm" style={{ marginBottom: '0.75rem' }}>
+            Search approved teacher accounts and manage Teach STEM status.
+          </p>
+          <input
+            className="form-input"
+            style={{ marginBottom: '0.75rem' }}
+            placeholder="Search by name, username, or email…"
+            value={teacherQuery}
+            onChange={e => searchTeachers(e.target.value)}
+          />
+          {teacherLoading && <p className="text-muted text-sm">Searching…</p>}
+          {!teacherLoading && teacherQuery && teachers.length === 0 && (
+            <div className="empty"><p style={{ fontStyle: 'italic' }}>No teachers found.</p></div>
+          )}
+          {teachers.map(t => (
+            <div key={t.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t.name}</div>
+                <div className="text-muted text-sm">@{t.username}{t.email ? ` · ${t.email}` : ''}</div>
+              </div>
+              <button
+                onClick={() => toggleTeachStem(t)}
+                disabled={toggling[t.id]}
+                className="btn btn--sm"
+                style={{
+                  flexShrink: 0,
+                  background: t.teach_stem_approved ? 'var(--teal)' : '#f5f5f5',
+                  border: `1px solid ${t.teach_stem_approved ? 'var(--teal-dark)' : 'var(--border)'}`,
+                  color: t.teach_stem_approved ? '#fff' : 'var(--text-muted)',
+                  fontWeight: 700,
+                  minWidth: 110,
+                }}
+              >
+                {toggling[t.id] ? '…' : t.teach_stem_approved ? 'Teach STEM' : 'Not Teach STEM'}
+              </button>
+            </div>
+          ))}
+          {!teacherQuery && teachers.length === 0 && (
+            <p className="text-muted text-sm" style={{ fontStyle: 'italic' }}>Type a name or email to search.</p>
           )}
         </section>
 

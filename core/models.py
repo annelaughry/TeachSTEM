@@ -148,6 +148,7 @@ class ActivityPrompt(models.Model):
         ('student', 'Student Prompt'),
         ('instruction', 'Student Instructions'),
         ('teacher', 'Teacher Note'),
+        ('video_embed', 'Video Embed'),
     ]
     RESPONSE_TYPE_CHOICES = [
         ('text', 'Text Response'),
@@ -155,8 +156,9 @@ class ActivityPrompt(models.Model):
         ('table', 'Data Table'),
     ]
     section = models.ForeignKey(ActivitySection, on_delete=models.CASCADE, related_name='prompts')
-    text = models.TextField()
+    text = models.TextField(blank=True)
     prompt_type = models.CharField(max_length=15, choices=TYPE_CHOICES, default='student')
+    video_url = models.CharField(max_length=500, blank=True, default='')
     response_type = models.CharField(max_length=10, choices=RESPONSE_TYPE_CHOICES, default='text')
     table_headers = models.JSONField(default=list, blank=True)
     order = models.PositiveIntegerField(default=0)

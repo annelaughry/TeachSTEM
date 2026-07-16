@@ -219,7 +219,7 @@ export default function StudentActivity() {
   }, [id])
 
   const studentSections = (activity?.sections || []).filter(sec =>
-    sec.prompts.some(p => p.prompt_type === 'student' || p.prompt_type === 'instruction')
+    sec.prompts.some(p => p.prompt_type === 'student' || p.prompt_type === 'instruction' || p.prompt_type === 'video_embed')
   )
 
   const total = studentSections.length
@@ -352,6 +352,25 @@ export default function StudentActivity() {
             {/* Prompts */}
             {current.prompts.map(prompt => {
               if (prompt.prompt_type === 'teacher') return null
+
+              if (prompt.prompt_type === 'video_embed') {
+                const embedUrl = toEmbedUrl(prompt.video_url)
+                if (!embedUrl) return null
+                return (
+                  <div key={prompt.id} style={{ marginTop: '1.25rem', borderRadius: 10, overflow: 'hidden', background: '#111' }}>
+                    <iframe
+                      src={embedUrl}
+                      style={{ width: '100%', aspectRatio: '16/9', border: 'none', display: 'block' }}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={prompt.text || 'Video'}
+                    />
+                    {prompt.text && (
+                      <div style={{ background: '#f5f0ff', padding: '0.5rem 1rem', fontSize: '0.88rem', color: '#5b21b6', fontWeight: 600 }}>{prompt.text}</div>
+                    )}
+                  </div>
+                )
+              }
 
               if (prompt.prompt_type === 'instruction') {
                 return (

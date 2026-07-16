@@ -307,8 +307,10 @@ def _save_sections_from_json(activity, sections_data):
         )
         for j, p in enumerate(sec.get('prompts', [])):
             prompt_text = p.get('text', '').strip()
+            prompt_type = p.get('prompt_type', 'student')
             response_type = p.get('response_type', 'text')
-            if prompt_text or response_type == 'table':
+            video_url = p.get('video_url', '').strip() if isinstance(p.get('video_url'), str) else ''
+            if prompt_text or response_type == 'table' or prompt_type == 'video_embed':
                 try:
                     table_headers = p.get('table_headers', []) or []
                     if isinstance(table_headers, str):
@@ -318,9 +320,10 @@ def _save_sections_from_json(activity, sections_data):
                 ActivityPrompt.objects.create(
                     section=section,
                     text=prompt_text,
-                    prompt_type=p.get('prompt_type', 'student'),
+                    prompt_type=prompt_type,
                     response_type=response_type,
                     table_headers=table_headers,
+                    video_url=video_url,
                     order=j,
                 )
         for k, lnk in enumerate(sec.get('links', [])):
@@ -1022,6 +1025,47 @@ def api_admin_teach_stem_teachers(request):
         {'id': t.id, 'name': t.get_full_name() or t.username, 'email': t.email}
         for t in teachers
     ])
+
+
+@api_view(['GET'])
+def api_admin_all_teachers(request):
+    """Search all approved teacher accounts."""
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    q = request.GET.get('q', '').strip()
+    from django.db.models import Q
+    qs = TeacherProfile.objects.filter(is_approved=True).select_related('user')
+    if q:
+        qs = qs.filter(
+            Q(user__first_name__icontains=q) |
+            Q(user__last_name__icontains=q) |
+            Q(user__username__icontains=q) |
+            Q(user__email__icontains=q)
+        )
+    return Response([
+        {
+            'id': tp.user.id,
+            'name': tp.user.get_full_name() or tp.user.username,
+            'username': tp.user.username,
+            'email': tp.user.email,
+            'teach_stem_approved': tp.teach_stem_approved,
+        }
+        for tp in qs.order_by('user__last_name', 'user__first_name')
+    ])
+
+
+@api_view(['POST'])
+def api_admin_toggle_teach_stem(request, user_id):
+    """Toggle a teacher's Teach STEM approved status."""
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    try:
+        tp = TeacherProfile.objects.get(user_id=user_id)
+        tp.teach_stem_approved = not tp.teach_stem_approved
+        tp.save()
+        return Response({'teach_stem_approved': tp.teach_stem_approved})
+    except TeacherProfile.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
 
 
 @api_view(['GET'])

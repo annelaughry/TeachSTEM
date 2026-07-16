@@ -5,7 +5,7 @@ import api from '../api'
 
 let _gk = 0
 const nextKey = () => ++_gk
-const mkPrompt = (overrides = {}) => ({ _k: nextKey(), text: '', prompt_type: 'student', response_type: 'text', table_headers: [], ...overrides })
+const mkPrompt = (overrides = {}) => ({ _k: nextKey(), text: '', prompt_type: 'student', response_type: 'text', table_headers: [], video_url: '', ...overrides })
 const mkLink = () => ({ _k: nextKey(), url: '', label: '' })
 const mkSection = () => ({ _k: nextKey(), title: '', prompts: [mkPrompt()], links: [] })
 
@@ -13,6 +13,7 @@ const PROMPT_META = {
   student:     { label: 'Student Prompt',        bg: '#fff8f9', border: '#f2385a', tag: '#fde8ed', tagTxt: '#c71a3a' },
   instruction: { label: 'Student Instructions',  bg: '#f0fbf7', border: '#3cc4c4', tag: '#e0f7f7', tagTxt: '#1a7c7c' },
   teacher:     { label: 'Teacher Note',          bg: '#fffde7', border: '#f7a826', tag: '#fef5e7', tagTxt: '#a06b00' },
+  video_embed: { label: 'Video',                 bg: '#f5f0ff', border: '#7c3aed', tag: '#ede9fe', tagTxt: '#5b21b6' },
 }
 
 export default function ActivityBuilder() {
@@ -65,7 +66,7 @@ export default function ActivityBuilder() {
           _k: nextKey(),
           title: sec.title || '',
           prompts: sec.prompts.length
-            ? sec.prompts.map(p => ({ _k: nextKey(), text: p.text || '', prompt_type: p.prompt_type || 'student', response_type: p.response_type || 'text', table_headers: p.table_headers || [] }))
+            ? sec.prompts.map(p => ({ _k: nextKey(), text: p.text || '', prompt_type: p.prompt_type || 'student', response_type: p.response_type || 'text', table_headers: p.table_headers || [], video_url: p.video_url || '' }))
             : [mkPrompt()],
           links: sec.links.map(l => ({ _k: nextKey(), url: l.url, label: l.label || '' })),
         })))
@@ -152,7 +153,7 @@ export default function ActivityBuilder() {
     gradeIds.forEach(gid => fd.append('grade_levels', gid))
     fd.append('sections_json', JSON.stringify(sections.map(sec => ({
       title: sec.title,
-      prompts: sec.prompts.map(p => ({ text: p.text, prompt_type: p.prompt_type, response_type: p.response_type, table_headers: p.table_headers })),
+      prompts: sec.prompts.map(p => ({ text: p.text, prompt_type: p.prompt_type, response_type: p.response_type, table_headers: p.table_headers, video_url: p.video_url || '' })),
       links: sec.links.map(l => ({ url: l.url, label: l.label })),
     }))))
     fd.append('video_url', videoUrl)
@@ -419,16 +420,18 @@ export default function ActivityBuilder() {
                       <span style={{ background: m.tag, color: m.tagTxt, borderRadius: 12, padding: '0.15rem 0.65rem', fontSize: '0.75rem', fontWeight: 800 }}>
                         {m.label}
                       </span>
-                      <div style={{ display: 'flex', gap: '0.25rem' }}>
-                        {['student', 'instruction', 'teacher'].map(type => (
-                          <button key={type} type="button" onClick={() => updatePrompt(sIdx, pIdx, 'prompt_type', type)}
-                            style={{ padding: '0.15rem 0.5rem', borderRadius: 8, border: `1.5px solid ${PROMPT_META[type].border}`, fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer',
-                              background: prompt.prompt_type === type ? PROMPT_META[type].border : '#fff',
-                              color: prompt.prompt_type === type ? '#fff' : PROMPT_META[type].tagTxt }}>
-                            {type === 'student' ? 'Student' : type === 'instruction' ? 'Instruction' : 'Teacher'}
-                          </button>
-                        ))}
-                      </div>
+                      {prompt.prompt_type !== 'video_embed' && (
+                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                          {['student', 'instruction', 'teacher'].map(type => (
+                            <button key={type} type="button" onClick={() => updatePrompt(sIdx, pIdx, 'prompt_type', type)}
+                              style={{ padding: '0.15rem 0.5rem', borderRadius: 8, border: `1.5px solid ${PROMPT_META[type].border}`, fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer',
+                                background: prompt.prompt_type === type ? PROMPT_META[type].border : '#fff',
+                                color: prompt.prompt_type === type ? '#fff' : PROMPT_META[type].tagTxt }}>
+                              {type === 'student' ? 'Student' : type === 'instruction' ? 'Instruction' : 'Teacher'}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.25rem' }}>
                         <button type="button" onClick={() => movePrompt(sIdx, pIdx, -1)} disabled={pIdx === 0}
                           style={{ padding: '0.2rem 0.4rem', background: '#fff', border: '1px solid var(--border)', borderRadius: 5, cursor: 'pointer', fontSize: '0.72rem', opacity: pIdx === 0 ? 0.3 : 1 }}>▲</button>
@@ -441,49 +444,64 @@ export default function ActivityBuilder() {
                       </div>
                     </div>
 
-                    <textarea className="form-input" style={{ background: '#fff', minHeight: 72 }}
-                      value={prompt.text} onChange={e => updatePrompt(sIdx, pIdx, 'text', e.target.value)}
-                      placeholder={
-                        prompt.prompt_type === 'student' ? 'Write the student prompt…' :
-                        prompt.prompt_type === 'instruction' ? 'Write instructions for students…' :
-                        'Write a teacher-only note…'
-                      } />
+                    {prompt.prompt_type === 'video_embed' ? (
+                      <>
+                        <input className="form-input" type="url" style={{ background: '#fff', marginBottom: '0.45rem' }}
+                          value={prompt.video_url || ''}
+                          onChange={e => updatePrompt(sIdx, pIdx, 'video_url', e.target.value)}
+                          placeholder="YouTube or Vimeo URL" />
+                        <input className="form-input" style={{ background: '#fff', fontSize: '0.88rem' }}
+                          value={prompt.text}
+                          onChange={e => updatePrompt(sIdx, pIdx, 'text', e.target.value)}
+                          placeholder="Caption (optional)" />
+                      </>
+                    ) : (
+                      <>
+                        <textarea className="form-input" style={{ background: '#fff', minHeight: 72 }}
+                          value={prompt.text} onChange={e => updatePrompt(sIdx, pIdx, 'text', e.target.value)}
+                          placeholder={
+                            prompt.prompt_type === 'student' ? 'Write the student prompt…' :
+                            prompt.prompt_type === 'instruction' ? 'Write instructions for students…' :
+                            'Write a teacher-only note…'
+                          } />
 
-                    {/* Response type (student prompts only) */}
-                    {prompt.prompt_type === 'student' && (
-                      <div style={{ marginTop: '0.5rem' }}>
-                        <div style={{ fontSize: '0.73rem', fontWeight: 800, color: m.tagTxt, marginBottom: '0.3rem' }}>Response type:</div>
-                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                          {[['text','Written Response'],['video','Video Recording'],['table','Data Table']].map(([val, lbl]) => (
-                            <button key={val} type="button" onClick={() => updatePrompt(sIdx, pIdx, 'response_type', val)}
-                              style={{ padding: '0.25rem 0.65rem', borderRadius: 8, border: `2px solid ${m.border}`, fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
-                                background: prompt.response_type === val ? m.border : '#fff',
-                                color: prompt.response_type === val ? '#fff' : m.tagTxt }}>
-                              {lbl}
-                            </button>
-                          ))}
-                        </div>
+                        {/* Response type (student prompts only) */}
+                        {prompt.prompt_type === 'student' && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                            <div style={{ fontSize: '0.73rem', fontWeight: 800, color: m.tagTxt, marginBottom: '0.3rem' }}>Response type:</div>
+                            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                              {[['text','Written Response'],['video','Video Recording'],['table','Data Table']].map(([val, lbl]) => (
+                                <button key={val} type="button" onClick={() => updatePrompt(sIdx, pIdx, 'response_type', val)}
+                                  style={{ padding: '0.25rem 0.65rem', borderRadius: 8, border: `2px solid ${m.border}`, fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
+                                    background: prompt.response_type === val ? m.border : '#fff',
+                                    color: prompt.response_type === val ? '#fff' : m.tagTxt }}>
+                                  {lbl}
+                                </button>
+                              ))}
+                            </div>
 
-                        {/* Table columns config */}
-                        {prompt.response_type === 'table' && (
-                          <div style={{ marginTop: '0.55rem', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: '0.65rem 0.8rem' }}>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Column Headers</div>
-                            {prompt.table_headers.map((h, hIdx) => (
-                              <div key={hIdx} style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.3rem' }}>
-                                <input className="form-input" style={{ fontSize: '0.85rem' }} value={h}
-                                  onChange={e => updateHeader(sIdx, pIdx, hIdx, e.target.value)}
-                                  placeholder={`Column ${hIdx + 1}`} />
-                                <button type="button" onClick={() => removeHeader(sIdx, pIdx, hIdx)}
-                                  style={{ padding: '0.25rem 0.45rem', background: '#fff5f5', border: '1px solid #ffaaaa', borderRadius: 5, cursor: 'pointer', color: '#c00' }}>×</button>
+                            {/* Table columns config */}
+                            {prompt.response_type === 'table' && (
+                              <div style={{ marginTop: '0.55rem', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: '0.65rem 0.8rem' }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Column Headers</div>
+                                {prompt.table_headers.map((h, hIdx) => (
+                                  <div key={hIdx} style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.3rem' }}>
+                                    <input className="form-input" style={{ fontSize: '0.85rem' }} value={h}
+                                      onChange={e => updateHeader(sIdx, pIdx, hIdx, e.target.value)}
+                                      placeholder={`Column ${hIdx + 1}`} />
+                                    <button type="button" onClick={() => removeHeader(sIdx, pIdx, hIdx)}
+                                      style={{ padding: '0.25rem 0.45rem', background: '#fff5f5', border: '1px solid #ffaaaa', borderRadius: 5, cursor: 'pointer', color: '#c00' }}>×</button>
+                                  </div>
+                                ))}
+                                <button type="button" onClick={() => addHeader(sIdx, pIdx)}
+                                  style={{ padding: '0.25rem 0.7rem', background: '#f5f5f5', border: '1px dashed var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
+                                  + Add Column
+                                </button>
                               </div>
-                            ))}
-                            <button type="button" onClick={() => addHeader(sIdx, pIdx)}
-                              style={{ padding: '0.25rem 0.7rem', background: '#f5f5f5', border: '1px dashed var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
-                              + Add Column
-                            </button>
+                            )}
                           </div>
                         )}
-                      </div>
+                      </>
                     )}
                   </div>
                 )
@@ -499,6 +517,10 @@ export default function ActivityBuilder() {
                 <button type="button" onClick={() => addPrompt(sIdx, 'teacher')} className="btn btn--sm"
                   style={{ background: 'var(--yellow-light)', border: '1px solid var(--yellow)', color: 'var(--yellow-dark)', fontWeight: 700 }}>
                   + Teacher Note
+                </button>
+                <button type="button" onClick={() => addPrompt(sIdx, 'video_embed')} className="btn btn--sm"
+                  style={{ background: '#f5f0ff', border: '1px solid #7c3aed', color: '#5b21b6', fontWeight: 700 }}>
+                  + Video
                 </button>
                 <button type="button" onClick={() => addLink(sIdx)} className="btn btn--sm"
                   style={{ background: '#f5f5f5', border: '1px solid var(--border)', color: 'var(--text-muted)', fontWeight: 700 }}>

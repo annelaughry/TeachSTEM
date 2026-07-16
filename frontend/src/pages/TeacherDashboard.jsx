@@ -11,7 +11,7 @@ const STATUS_BADGE = {
 }
 
 export default function TeacherDashboard() {
-  const { user } = useAuth()
+  const { user, isTeachSTEM } = useAuth()
   const navigate = useNavigate()
   const [classrooms, setClassrooms] = useState([])
   const [activities, setActivities] = useState([])
@@ -58,7 +58,9 @@ export default function TeacherDashboard() {
         <h1>Welcome, {user?.first_name || user?.username}!</h1>
         <p>Manage your classrooms, activities, and modules.</p>
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem', flexWrap: 'wrap' }}>
-          <Link to="/teacher/activity/create" className="btn btn--primary" style={{ background: '#fff', color: 'var(--pink)', fontWeight: 800 }}>+ New Activity</Link>
+          {isTeachSTEM && (
+            <Link to="/teacher/activity/create" className="btn btn--primary" style={{ background: '#fff', color: 'var(--pink)', fontWeight: 800 }}>+ New Activity</Link>
+          )}
           <Link to="/teacher/module/create" className="btn btn--teal">+ New Module</Link>
           <Link to="/teacher/modules" className="btn" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', borderColor: 'rgba(255,255,255,0.4)' }}>My Modules</Link>
         </div>

@@ -63,6 +63,8 @@ urlpatterns = [
     path('admin/project-topics/', views.api_admin_project_topics, name='api_admin_project_topics'),
     path('admin/project-topics/<int:pk>/feedback/', views.api_admin_project_topic_feedback, name='api_admin_project_topic_feedback'),
     path('admin/teach-stem-teachers/', views.api_admin_teach_stem_teachers, name='api_admin_teach_stem_teachers'),
+    path('admin/teachers/', views.api_admin_all_teachers, name='api_admin_all_teachers'),
+    path('admin/teachers/<int:user_id>/toggle-teach-stem/', views.api_admin_toggle_teach_stem, name='api_admin_toggle_teach_stem'),
     path('teach-stem/assigned-activities/', views.api_teach_stem_assigned_activities, name='api_teach_stem_assigned_activities'),
 
     # 3-2-1 Formative Assessment

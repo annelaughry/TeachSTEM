@@ -65,7 +65,7 @@ class ActivityFileSerializer(serializers.ModelSerializer):
 class ActivityPromptSerializer(serializers.ModelSerializer):
     class Meta:
         model = ActivityPrompt
-        fields = ['id', 'text', 'prompt_type', 'response_type', 'table_headers', 'order']
+        fields = ['id', 'text', 'prompt_type', 'response_type', 'table_headers', 'order', 'video_url']
 
 
 class ActivitySectionSerializer(serializers.ModelSerializer):

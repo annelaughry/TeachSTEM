@@ -279,7 +279,25 @@ export default function ActivityDetail() {
             )}
             {sec.prompts.map(p => (
               <div key={p.id} style={{ marginBottom: '0.85rem' }}>
-                {p.prompt_type === 'teacher' ? (
+                {p.prompt_type === 'video_embed' ? (
+                  (() => {
+                    const embedUrl = toEmbedUrl(p.video_url)
+                    return embedUrl ? (
+                      <div style={{ borderRadius: 8, overflow: 'hidden', background: '#111' }}>
+                        <iframe
+                          src={embedUrl}
+                          style={{ width: '100%', aspectRatio: '16/9', border: 'none', display: 'block' }}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          title={p.text || 'Video'}
+                        />
+                        {p.text && (
+                          <div style={{ background: '#f5f0ff', padding: '0.45rem 0.9rem', fontSize: '0.87rem', color: '#5b21b6', fontWeight: 600 }}>{p.text}</div>
+                        )}
+                      </div>
+                    ) : null
+                  })()
+                ) : p.prompt_type === 'teacher' ? (
                   <div style={{ background: 'var(--yellow-light)', borderLeft: '3px solid var(--yellow)', borderRadius: '0 7px 7px 0', padding: '0.65rem 0.9rem' }}>
                     <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--yellow-dark)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Teacher Note</div>
                     <div style={{ color: '#555', whiteSpace: 'pre-wrap' }}>{p.text}</div>
