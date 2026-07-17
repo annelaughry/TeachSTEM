@@ -304,6 +304,17 @@ class TStemSurveyResponse(models.Model):
         return f"T-STEM Survey — {self.teacher.username}"
 
 
+class TeacherSurveyResponse(models.Model):
+    teacher = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacher_survey')
+    responses = models.JSONField(default=dict, blank=True)
+    completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Teacher Survey — {self.teacher.username}"
+
+
 class TeachSTEMTaskCompletion(models.Model):
     teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='task_completions')
     task = models.ForeignKey(TeachSTEMTask, on_delete=models.CASCADE, related_name='completions')

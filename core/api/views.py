@@ -14,7 +14,7 @@ from core.models import (
     GradeLevel, Standard, Concept, Classroom, Module, ModuleActivity,
     TeacherProfile, StudentResponse, TeacherFeedback, ActivityFile,
     ClassroomSectionPoints, StudentSectionScore, LessonFeedback, TeachSTEMProfile, TeachSTEMTask,
-    TeachSTEMTaskCompletion, ProjectTopicSubmission, TStemSurveyResponse,
+    TeachSTEMTaskCompletion, ProjectTopicSubmission, TStemSurveyResponse, TeacherSurveyResponse,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
 )
 from core.views import _is_teacher, _save_sections_and_standards, _activity_completed_by
@@ -26,6 +26,7 @@ from .serializers import (
     LessonFeedbackSerializer, TeachSTEMProfileSerializer, TeachSTEMTaskSerializer,
     ProjectTopicSubmissionSerializer, TStemSurveyResponseSerializer,
     ThreeTwoOneAssignmentSerializer, ThreeTwoOneResponseSerializer,
+    TeacherSurveyResponseSerializer,
 )
 
 
@@ -1080,6 +1081,42 @@ def api_admin_toggle_teach_stem(request, user_id):
 
 
 @api_view(['GET'])
+def api_admin_tstem_survey_results(request):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    results = TStemSurveyResponse.objects.select_related('teacher').order_by('-completed', 'teacher__last_name')
+    return Response([
+        {
+            'teacher_id': r.teacher.id,
+            'teacher_name': r.teacher.get_full_name() or r.teacher.username,
+            'completed': r.completed,
+            'completed_at': r.completed_at,
+            'updated_at': r.updated_at,
+            'responses': r.responses,
+        }
+        for r in results
+    ])
+
+
+@api_view(['GET'])
+def api_admin_teacher_survey_results(request):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    results = TeacherSurveyResponse.objects.select_related('teacher').order_by('-completed', 'teacher__last_name')
+    return Response([
+        {
+            'teacher_id': r.teacher.id,
+            'teacher_name': r.teacher.get_full_name() or r.teacher.username,
+            'completed': r.completed,
+            'completed_at': r.completed_at,
+            'updated_at': r.updated_at,
+            'responses': r.responses,
+        }
+        for r in results
+    ])
+
+
+@api_view(['GET'])
 def api_teach_stem_assigned_activities(request):
     """Return restricted activities that have been assigned to the current Teach STEM teacher."""
     if not _teach_stem_required(request):
@@ -1111,6 +1148,27 @@ def api_tstem_survey(request):
         survey.completed_at = timezone.now()
     survey.save()
     return Response(TStemSurveyResponseSerializer(survey).data)
+
+
+@api_view(['GET', 'POST'])
+def api_teacher_survey(request):
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+
+    survey, _ = TeacherSurveyResponse.objects.get_or_create(teacher=request.user)
+
+    if request.method == 'GET':
+        return Response(TeacherSurveyResponseSerializer(survey).data)
+
+    from django.utils import timezone
+    responses = request.data.get('responses', survey.responses)
+    completed = request.data.get('completed', False)
+    survey.responses = responses
+    if completed and not survey.completed:
+        survey.completed = True
+        survey.completed_at = timezone.now()
+    survey.save()
+    return Response(TeacherSurveyResponseSerializer(survey).data)
 
 
 # --- 3-2-1 Formative Assessment ---

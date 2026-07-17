@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
+import { SECTIONS as TSTEM_SECTIONS } from '../data/tstemSurvey'
+import { SECTIONS as TEACHER_SECTIONS } from '../data/teacherSurvey'
 
 const BLANK_TASK = { title: '', description: '', due_date: '' }
 
@@ -23,6 +25,13 @@ export default function AdminDashboard() {
   const [toggling, setToggling]           = useState({})
   const teacherSearchTimeout              = useRef(null)
 
+  // Survey results state
+  const [surveyTab, setSurveyTab]           = useState('tstem')
+  const [tstemResults, setTstemResults]     = useState(null)
+  const [teacherResults, setTeacherResults] = useState(null)
+  const [surveyLoading, setSurveyLoading]   = useState(false)
+  const [expandedSurvey, setExpandedSurvey] = useState(null)
+
   // Tasks state
   const [tasks, setTasks]         = useState([])
   const [taskForm, setTaskForm]   = useState(BLANK_TASK)
@@ -36,10 +45,12 @@ export default function AdminDashboard() {
       api.get('admin/dashboard/'),
       api.get('teach-stem/tasks/'),
       api.get('admin/project-topics/'),
-    ]).then(([dash, t, ps]) => {
+      api.get('admin/survey-results/tstem/'),
+    ]).then(([dash, t, ps, tstem]) => {
       setData(dash.data)
       setTasks(t.data)
       setProjectSubs(ps.data)
+      setTstemResults(tstem.data)
       if (ps.data.length > 0) setExpandedSub(ps.data[0].id)
     }).finally(() => setLoading(false))
   }, [])
@@ -77,6 +88,25 @@ export default function AdminDashboard() {
       setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, teach_stem_approved: data.teach_stem_approved } : t))
     } finally {
       setToggling(t => ({ ...t, [teacher.id]: false }))
+    }
+  }
+
+  const loadSurveyResults = async (tab) => {
+    setSurveyTab(tab)
+    setExpandedSurvey(null)
+    if (tab === 'tstem' && tstemResults !== null) return
+    if (tab === 'teacher' && teacherResults !== null) return
+    setSurveyLoading(true)
+    try {
+      if (tab === 'tstem') {
+        const { data } = await api.get('admin/survey-results/tstem/')
+        setTstemResults(data)
+      } else {
+        const { data } = await api.get('admin/survey-results/teacher/')
+        setTeacherResults(data)
+      }
+    } finally {
+      setSurveyLoading(false)
     }
   }
 
@@ -422,6 +452,116 @@ export default function AdminDashboard() {
               )}
             </form>
           </div>
+        </section>
+
+        {/* Survey Results */}
+        <section style={{ marginBottom: '2.5rem' }}>
+          <div className="section-title">Survey Results</div>
+
+          {/* Tab switcher */}
+          <div style={{ display: 'flex', gap: '0', marginBottom: '1.25rem', borderBottom: '2px solid var(--border)' }}>
+            {[
+              { key: 'tstem', label: 'T-STEM Survey' },
+              { key: 'teacher', label: 'Teacher Survey' },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => loadSurveyResults(tab.key)}
+                style={{
+                  padding: '0.5rem 1.25rem',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: surveyTab === tab.key ? '2px solid var(--teal)' : '2px solid transparent',
+                  marginBottom: -2,
+                  cursor: 'pointer',
+                  fontWeight: surveyTab === tab.key ? 800 : 500,
+                  color: surveyTab === tab.key ? 'var(--teal-dark)' : 'var(--text-muted)',
+                  fontSize: '0.9rem',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {surveyLoading && <p className="text-muted text-sm">Loading...</p>}
+
+          {!surveyLoading && (() => {
+            const results = surveyTab === 'tstem' ? tstemResults : teacherResults
+            const sections = surveyTab === 'tstem' ? TSTEM_SECTIONS : TEACHER_SECTIONS
+            if (results === null) {
+              return null
+            }
+            if (results.length === 0) {
+              return <div className="empty"><p style={{ fontStyle: 'italic' }}>No responses yet.</p></div>
+            }
+            const completed = results.filter(r => r.completed).length
+            return (
+              <>
+                <p className="text-muted text-sm" style={{ marginBottom: '0.75rem' }}>
+                  {completed} of {results.length} teacher{results.length !== 1 ? 's' : ''} completed
+                </p>
+                {results.map(r => (
+                  <div key={r.teacher_id} className="card" style={{ marginBottom: '0.5rem', padding: 0, overflow: 'hidden' }}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedSurvey(expandedSurvey === r.teacher_id ? null : r.teacher_id)}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{r.teacher_name}</span>
+                      </div>
+                      <span style={{
+                        fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+                        background: r.completed ? '#e8f5e9' : '#fff3e0',
+                        color: r.completed ? '#2e7d32' : '#e65100',
+                        border: `1px solid ${r.completed ? '#a5d6a7' : '#ffcc80'}`,
+                        flexShrink: 0,
+                      }}>
+                        {r.completed ? 'Completed' : 'In Progress'}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+                        {expandedSurvey === r.teacher_id ? '▾' : '▸'}
+                      </span>
+                    </button>
+
+                    {expandedSurvey === r.teacher_id && (
+                      <div style={{ borderTop: '1px solid var(--border)', padding: '1rem' }}>
+                        {Object.keys(r.responses || {}).length === 0 ? (
+                          <p className="text-muted text-sm" style={{ fontStyle: 'italic' }}>No answers recorded yet.</p>
+                        ) : (
+                          sections.map(sec => {
+                            const answered = sec.questions.filter((_, qi) => r.responses[`${sec.id}_q${qi + 1}`] != null)
+                            if (!answered.length) return null
+                            return (
+                              <div key={sec.id} style={{ marginBottom: '1.25rem' }}>
+                                <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                                  {sec.title}
+                                </div>
+                                {sec.questions.map((q, qi) => {
+                                  const val = r.responses[`${sec.id}_q${qi + 1}`]
+                                  if (val == null) return null
+                                  return (
+                                    <div key={qi} style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.4rem', fontSize: '0.88rem', alignItems: 'flex-start' }}>
+                                      <span style={{ color: 'var(--text-muted)', flexShrink: 0, minWidth: 18 }}>{qi + 1}.</span>
+                                      <span style={{ flex: 1, color: '#333' }}>{q}</span>
+                                      <span style={{ flexShrink: 0, fontWeight: 700, color: 'var(--teal-dark)', fontSize: '0.82rem', background: '#f0fdfa', border: '1px solid var(--teal)', borderRadius: 4, padding: '1px 7px' }}>
+                                        {sec.scale[val - 1]}
+                                      </span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </>
+            )
+          })()}
         </section>
 
         {/* Pending activities */}

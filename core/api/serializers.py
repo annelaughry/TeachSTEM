@@ -5,7 +5,7 @@ from core.models import (
     GradeLevel, Standard, Concept, Classroom, Module, ModuleActivity,
     TeacherProfile, StudentResponse, TeacherFeedback, ActivityFile,
     LessonFeedback, TeachSTEMProfile, TeachSTEMTask, TeachSTEMTaskCompletion,
-    ProjectTopicSubmission, TStemSurveyResponse,
+    ProjectTopicSubmission, TStemSurveyResponse, TeacherSurveyResponse,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
 )
 
@@ -206,6 +206,13 @@ class LessonFeedbackSerializer(serializers.ModelSerializer):
 class TStemSurveyResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = TStemSurveyResponse
+        fields = ['id', 'responses', 'completed', 'completed_at', 'updated_at']
+        read_only_fields = ['id', 'completed_at', 'updated_at']
+
+
+class TeacherSurveyResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TeacherSurveyResponse
         fields = ['id', 'responses', 'completed', 'completed_at', 'updated_at']
         read_only_fields = ['id', 'completed_at', 'updated_at']
 

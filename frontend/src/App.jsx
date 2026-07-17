@@ -24,6 +24,7 @@ import LessonFeedbackSurvey from './pages/LessonFeedbackSurvey'
 import TeachSTEMProfilePage from './pages/TeachSTEMProfilePage'
 import ProjectTopics from './pages/ProjectTopics'
 import TStemSurvey from './pages/TStemSurvey'
+import TeacherSurvey from './pages/TeacherSurvey'
 import ThreeTwoOneList from './pages/ThreeTwoOneList'
 import ThreeTwoOneResponses from './pages/ThreeTwoOneResponses'
 import StudentThreeTwoOne from './pages/StudentThreeTwoOne'
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route path="/teach-stem/tstem-survey" element={<RequireAuth role="teach_stem"><TStemSurvey /></RequireAuth>} />
         <Route path="/teach-stem/321" element={<RequireAuth role="teach_stem"><ThreeTwoOneList /></RequireAuth>} />
         <Route path="/teach-stem/321/:id" element={<RequireAuth role="teach_stem"><ThreeTwoOneResponses /></RequireAuth>} />
+        <Route path="/teacher/survey" element={<RequireAuth role="teacher"><TeacherSurvey /></RequireAuth>} />
         <Route path="/teacher/activity/create" element={<RequireAuth role="teach_stem"><ActivityBuilder /></RequireAuth>} />
         <Route path="/teacher/activity/:id/edit" element={<RequireAuth role="teach_stem"><ActivityBuilder /></RequireAuth>} />
         <Route path="/teacher/activity/:id/responses" element={<RequireAuth role="teacher"><TeacherResponses /></RequireAuth>} />

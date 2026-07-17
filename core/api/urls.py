@@ -60,12 +60,15 @@ urlpatterns = [
     path('teach-stem/tasks/<int:pk>/complete/', views.api_teach_stem_task_complete, name='api_teach_stem_task_complete'),
     path('teach-stem/project-topics/', views.api_project_topics, name='api_project_topics'),
     path('teach-stem/tstem-survey/', views.api_tstem_survey, name='api_tstem_survey'),
+    path('teacher-survey/', views.api_teacher_survey, name='api_teacher_survey'),
     path('teach-stem/project-topics/<int:pk>/submit/', views.api_project_topic_submit, name='api_project_topic_submit'),
     path('admin/project-topics/', views.api_admin_project_topics, name='api_admin_project_topics'),
     path('admin/project-topics/<int:pk>/feedback/', views.api_admin_project_topic_feedback, name='api_admin_project_topic_feedback'),
     path('admin/teach-stem-teachers/', views.api_admin_teach_stem_teachers, name='api_admin_teach_stem_teachers'),
     path('admin/teachers/', views.api_admin_all_teachers, name='api_admin_all_teachers'),
     path('admin/teachers/<int:user_id>/toggle-teach-stem/', views.api_admin_toggle_teach_stem, name='api_admin_toggle_teach_stem'),
+    path('admin/survey-results/tstem/', views.api_admin_tstem_survey_results, name='api_admin_tstem_survey_results'),
+    path('admin/survey-results/teacher/', views.api_admin_teacher_survey_results, name='api_admin_teacher_survey_results'),
     path('teach-stem/assigned-activities/', views.api_teach_stem_assigned_activities, name='api_teach_stem_assigned_activities'),
 
     # 3-2-1 Formative Assessment

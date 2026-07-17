@@ -68,6 +68,7 @@ export default function TeacherDashboard() {
             <Link to="/teacher/activity/create" className="btn btn--primary" style={{ background: '#fff', color: 'var(--pink)', fontWeight: 800 }}>+ New Activity</Link>
           )}
           <Link to="/teacher/module/create" className="btn btn--teal">+ New Module</Link>
+          <Link to="/teacher/survey" className="btn" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', borderColor: 'rgba(255,255,255,0.4)' }}>Teacher Survey</Link>
           <Link to="/teacher/modules" className="btn" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', borderColor: 'rgba(255,255,255,0.4)' }}>My Modules</Link>
         </div>
       </div>
