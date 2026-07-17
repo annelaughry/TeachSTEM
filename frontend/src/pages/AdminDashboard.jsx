@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../api'
 
 const BLANK_TASK = { title: '', description: '', due_date: '' }
@@ -430,24 +431,34 @@ export default function AdminDashboard() {
             <div className="empty"><p style={{ fontStyle: 'italic' }}>No activities awaiting review.</p></div>
           ) : (
             data?.pending_activities.map(act => (
-              <div key={act.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h3 className="truncate">{act.title}</h3>
-                  <p className="text-muted text-sm">
-                    {act.activity_type?.replace('_', ' ')} · {act.created_by_name}
-                    {act.grade_levels?.map(g => <span key={g.id}> · {g.name}</span>)}
-                  </p>
-                  {act.description && <p className="text-sm" style={{ color: '#555', marginTop: '0.25rem' }}>{act.description.slice(0, 100)}…</p>}
+              <div key={act.id} className="card" style={{ marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ marginBottom: '0.2rem' }}>{act.title}</h3>
+                    <p className="text-muted text-sm">
+                      {act.activity_type?.replace('_', ' ')} · {act.created_by_name}
+                      {act.grade_levels?.map(g => <span key={g.id}> · {g.name}</span>)}
+                    </p>
+                    {act.description && <p className="text-sm" style={{ color: '#555', marginTop: '0.25rem' }}>{act.description}</p>}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                    <button
+                      onClick={() => { if (confirm(`Reject "${act.title}"?`)) action('reject_activity', { activity_id: act.id }) }}
+                      className="btn btn--danger btn--sm"
+                    >Reject</button>
+                    <button
+                      onClick={() => action('approve_activity', { activity_id: act.id })}
+                      className="btn btn--teal btn--sm"
+                    >Approve</button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
-                  <button
-                    onClick={() => { if (confirm(`Reject "${act.title}"?`)) action('reject_activity', { activity_id: act.id }) }}
-                    className="btn btn--danger btn--sm"
-                  >Reject</button>
-                  <button
-                    onClick={() => action('approve_activity', { activity_id: act.id })}
-                    className="btn btn--teal btn--sm"
-                  >Approve</button>
+                <div style={{ display: 'flex', gap: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.65rem' }}>
+                  <Link to={`/activity/${act.id}`} className="btn btn--outline btn--sm" target="_blank" rel="noopener noreferrer">
+                    View Full Activity
+                  </Link>
+                  <Link to={`/activity/${act.id}/work`} className="btn btn--sm" style={{ background: 'var(--teal-light)', border: '1px solid var(--teal)', color: 'var(--teal-dark)', fontWeight: 700 }} target="_blank" rel="noopener noreferrer">
+                    View as Student
+                  </Link>
                 </div>
               </div>
             ))
