@@ -189,13 +189,11 @@ def api_activity_create(request):
         grade_ids = [grade_ids]
     activity.grade_levels.set(grade_ids)
 
-    restricted_ids = request.data.getlist('restricted_teacher_ids') if hasattr(request.data, 'getlist') else request.data.get('restricted_teacher_ids', [])
-    if isinstance(restricted_ids, str):
-        import json as _json
-        try:
-            restricted_ids = _json.loads(restricted_ids)
-        except Exception:
-            restricted_ids = [restricted_ids] if restricted_ids else []
+    restricted_raw = request.data.get('restricted_teacher_ids', '[]')
+    try:
+        restricted_ids = json.loads(restricted_raw) if isinstance(restricted_raw, str) else (restricted_raw if isinstance(restricted_raw, list) else [])
+    except Exception:
+        restricted_ids = []
     activity.restricted_teachers.set(restricted_ids)
 
     if request.FILES.get('instructions_pdf'):
@@ -205,9 +203,9 @@ def api_activity_create(request):
     sections_json = request.data.get('sections_json', '[]')
     try:
         sections_data = json.loads(sections_json) if isinstance(sections_json, str) else sections_json
-        _save_sections_from_json(activity, sections_data)
-    except (json.JSONDecodeError, Exception):
-        pass
+    except json.JSONDecodeError:
+        sections_data = []
+    _save_sections_from_json(activity, sections_data)
 
     _save_handout_files(activity, request)
 
@@ -254,21 +252,20 @@ def api_activity_edit(request, pk):
     activity.save()
 
     if 'restricted_teacher_ids' in request.data:
-        restricted_ids = request.data.getlist('restricted_teacher_ids') if hasattr(request.data, 'getlist') else request.data.get('restricted_teacher_ids', [])
-        if isinstance(restricted_ids, str):
-            try:
-                restricted_ids = json.loads(restricted_ids)
-            except Exception:
-                restricted_ids = [restricted_ids] if restricted_ids else []
+        restricted_raw = request.data.get('restricted_teacher_ids', '[]')
+        try:
+            restricted_ids = json.loads(restricted_raw) if isinstance(restricted_raw, str) else (restricted_raw if isinstance(restricted_raw, list) else [])
+        except Exception:
+            restricted_ids = []
         activity.restricted_teachers.set(restricted_ids)
 
     sections_json = request.data.get('sections_json')
     if sections_json is not None:
         try:
             sections_data = json.loads(sections_json) if isinstance(sections_json, str) else sections_json
-            _save_sections_from_json(activity, sections_data)
-        except (json.JSONDecodeError, Exception):
-            pass
+        except json.JSONDecodeError:
+            sections_data = []
+        _save_sections_from_json(activity, sections_data)
 
     _save_handout_files(activity, request)
 
