@@ -129,7 +129,7 @@ export default function TStemSurvey() {
     }
   }
 
-  const totalQ = SECTIONS.reduce((sum, s) => sum + s.questions.length, 0)
+  const totalQ = SECTIONS.reduce((sum, s) => sum + (s.questions ? s.questions.length : 0), 0)
   const answeredQ = Object.keys(responses).length
 
   if (loading) return <div className="page"><div className="container" style={{ marginTop: 80, textAlign: 'center' }}>Loading...</div></div>
