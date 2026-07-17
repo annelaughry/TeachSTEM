@@ -50,6 +50,12 @@ export default function TeacherDashboard() {
     setActivities(prev => prev.map(a => a.id === activityId ? { ...a, status: 'pending' } : a))
   }
 
+  const deleteActivity = async (activityId, title) => {
+    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return
+    await api.delete(`activities/${activityId}/delete/`)
+    setActivities(prev => prev.filter(a => a.id !== activityId))
+  }
+
   if (loading) return <div className="spinner">Loading…</div>
 
   return (
@@ -88,7 +94,10 @@ export default function TeacherDashboard() {
                       <>
                         <Link to={`/teacher/activity/${act.id}/edit`} className="btn btn--outline btn--sm">Edit</Link>
                         {act.status === 'draft' && (
-                          <button onClick={() => submitActivity(act.id)} className="btn btn--primary btn--sm">Submit</button>
+                          <>
+                            <button onClick={() => submitActivity(act.id)} className="btn btn--primary btn--sm">Submit</button>
+                            <button onClick={() => deleteActivity(act.id, act.title)} className="btn btn--danger btn--sm">Delete</button>
+                          </>
                         )}
                       </>
                     )}

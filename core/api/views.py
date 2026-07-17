@@ -357,6 +357,20 @@ def api_activity_submit(request, pk):
     return Response({'status': activity.status})
 
 
+@api_view(['DELETE'])
+def api_activity_delete(request, pk):
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+    try:
+        activity = Activity.objects.get(pk=pk, created_by=request.user)
+    except Activity.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    if activity.status != 'draft':
+        return Response({'error': 'Only draft activities can be deleted.'}, status=400)
+    activity.delete()
+    return Response({'ok': True})
+
+
 # ── Grade levels & metadata ───────────────────────────────────────────────────
 
 @api_view(['GET'])
