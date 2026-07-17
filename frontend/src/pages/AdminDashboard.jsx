@@ -531,6 +531,27 @@ export default function AdminDashboard() {
                           <p className="text-muted text-sm" style={{ fontStyle: 'italic' }}>No answers recorded yet.</p>
                         ) : (
                           sections.map(sec => {
+                            if (sec.type === 'demographics') {
+                              const hasAny = sec.fields.some(f => r.responses[`${sec.id}_${f.key}`])
+                              if (!hasAny) return null
+                              return (
+                                <div key={sec.id} style={{ marginBottom: '1.25rem' }}>
+                                  <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                                    {sec.title}
+                                  </div>
+                                  {sec.fields.map(f => {
+                                    const val = r.responses[`${sec.id}_${f.key}`]
+                                    if (!val) return null
+                                    return (
+                                      <div key={f.key} style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.4rem', fontSize: '0.88rem', alignItems: 'center' }}>
+                                        <span style={{ color: 'var(--text-muted)', minWidth: 180 }}>{f.label}:</span>
+                                        <span style={{ fontWeight: 600, color: '#333' }}>{val}</span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )
+                            }
                             const answered = sec.questions.filter((_, qi) => r.responses[`${sec.id}_q${qi + 1}`] != null)
                             if (!answered.length) return null
                             return (

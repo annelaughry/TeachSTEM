@@ -189,6 +189,12 @@ export default function TeachSTEMDashboard() {
             description="A Friday Institute survey measuring your science teaching efficacy, instructional practices, 21st century learning attitudes, and STEM career awareness."
             color="var(--teal-dark)"
           />
+          <DashCard
+            to="/teacher/survey"
+            title="Teacher Survey"
+            description="A survey measuring your teaching efficacy, instructional practices, 21st century learning attitudes, and career awareness — adapted for all subject areas."
+            color="var(--teal)"
+          />
         </div>
 
         {/* Assigned Activities */}

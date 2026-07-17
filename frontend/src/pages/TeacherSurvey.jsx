@@ -71,6 +71,12 @@ export default function TeacherSurvey() {
   const section = SECTIONS[step]
 
   const sectionAnswered = () => {
+    if (section.type === 'demographics') {
+      return section.fields.every(f => {
+        const val = responses[`${section.id}_${f.key}`]
+        return val != null && String(val).trim() !== ''
+      })
+    }
     return section.questions.every((_, qi) => {
       const key = `${section.id}_q${qi + 1}`
       return responses[key] != null
@@ -218,30 +224,54 @@ export default function TeacherSurvey() {
             </p>
           )}
 
-          {/* Scale legend */}
-          <div style={{ background: '#f8f9fa', border: '1px solid var(--border)', borderRadius: 6, padding: '0.65rem 1rem', marginBottom: '1.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.5rem' }}>
-            {section.scale.map((label, i) => (
-              <span key={i} style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                <strong style={{ color: 'var(--teal-dark)', marginRight: '0.25rem' }}>{i + 1}</strong>
-                {label}
-              </span>
-            ))}
-          </div>
+          {section.type === 'demographics' ? (
+            section.fields.map(field => {
+              const key = `${section.id}_${field.key}`
+              return (
+                <div key={field.key} style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', fontWeight: 600, fontSize: '0.92rem', marginBottom: '0.4rem', color: 'var(--text)' }}>
+                    {field.label}
+                  </label>
+                  <input
+                    type={field.type}
+                    className="form-input"
+                    placeholder={field.placeholder}
+                    value={responses[key] || ''}
+                    onChange={e => handleChange(key, e.target.value)}
+                    min={field.type === 'number' ? 0 : undefined}
+                    style={{ maxWidth: 360 }}
+                  />
+                </div>
+              )
+            })
+          ) : (
+            <>
+              {/* Scale legend */}
+              <div style={{ background: '#f8f9fa', border: '1px solid var(--border)', borderRadius: 6, padding: '0.65rem 1rem', marginBottom: '1.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.5rem' }}>
+                {section.scale.map((label, i) => (
+                  <span key={i} style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    <strong style={{ color: 'var(--teal-dark)', marginRight: '0.25rem' }}>{i + 1}</strong>
+                    {label}
+                  </span>
+                ))}
+              </div>
 
-          {section.questions.map((q, qi) => {
-            const key = `${section.id}_q${qi + 1}`
-            return (
-              <ScaleRow
-                key={key}
-                qKey={key}
-                questionText={q}
-                number={qi + 1}
-                scale={section.scale}
-                value={responses[key] ?? null}
-                onChange={handleChange}
-              />
-            )
-          })}
+              {section.questions.map((q, qi) => {
+                const key = `${section.id}_q${qi + 1}`
+                return (
+                  <ScaleRow
+                    key={key}
+                    qKey={key}
+                    questionText={q}
+                    number={qi + 1}
+                    scale={section.scale}
+                    value={responses[key] ?? null}
+                    onChange={handleChange}
+                  />
+                )
+              })}
+            </>
+          )}
         </div>
 
         {error && (

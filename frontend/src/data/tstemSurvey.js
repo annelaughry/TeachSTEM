@@ -25,6 +25,16 @@ export const FREQUENCY_5 = [
 
 export const SECTIONS = [
   {
+    id: 'demo',
+    title: 'About You',
+    type: 'demographics',
+    directions: 'Please tell us a little about yourself before beginning the survey.',
+    fields: [
+      { key: 'subject_taught', label: 'Subject(s) you teach', type: 'text', placeholder: 'e.g., Biology, Chemistry' },
+      { key: 'years_teaching', label: 'Years of teaching experience', type: 'number', placeholder: 'e.g., 5' },
+    ],
+  },
+  {
     id: 's1',
     title: 'Science Teaching Efficacy and Beliefs',
     directions: 'Please respond to these questions regarding your feelings about your own teaching.',
