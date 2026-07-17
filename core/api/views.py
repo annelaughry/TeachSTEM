@@ -1084,14 +1084,10 @@ def api_admin_toggle_teach_stem(request, user_id):
 def api_admin_tstem_survey_results(request):
     if not (request.user.is_staff or request.user.is_superuser):
         return Response({'error': 'Admin access required.'}, status=403)
-    results = TStemSurveyResponse.objects.select_related('teacher').order_by('-completed', 'teacher__last_name')
+    results = TStemSurveyResponse.objects.order_by('-completed', 'id')
     return Response([
         {
-            'teacher_id': r.teacher.id,
-            'teacher_name': r.teacher.get_full_name() or r.teacher.username,
             'completed': r.completed,
-            'completed_at': r.completed_at,
-            'updated_at': r.updated_at,
             'responses': r.responses,
         }
         for r in results
@@ -1102,14 +1098,10 @@ def api_admin_tstem_survey_results(request):
 def api_admin_teacher_survey_results(request):
     if not (request.user.is_staff or request.user.is_superuser):
         return Response({'error': 'Admin access required.'}, status=403)
-    results = TeacherSurveyResponse.objects.select_related('teacher').order_by('-completed', 'teacher__last_name')
+    results = TeacherSurveyResponse.objects.order_by('-completed', 'id')
     return Response([
         {
-            'teacher_id': r.teacher.id,
-            'teacher_name': r.teacher.get_full_name() or r.teacher.username,
             'completed': r.completed,
-            'completed_at': r.completed_at,
-            'updated_at': r.updated_at,
             'responses': r.responses,
         }
         for r in results

@@ -501,15 +501,15 @@ export default function AdminDashboard() {
                 <p className="text-muted text-sm" style={{ marginBottom: '0.75rem' }}>
                   {completed} of {results.length} teacher{results.length !== 1 ? 's' : ''} completed
                 </p>
-                {results.map(r => (
-                  <div key={r.teacher_id} className="card" style={{ marginBottom: '0.5rem', padding: 0, overflow: 'hidden' }}>
+                {results.map((r, idx) => (
+                  <div key={idx} className="card" style={{ marginBottom: '0.5rem', padding: 0, overflow: 'hidden' }}>
                     <button
                       type="button"
-                      onClick={() => setExpandedSurvey(expandedSurvey === r.teacher_id ? null : r.teacher_id)}
+                      onClick={() => setExpandedSurvey(expandedSurvey === idx ? null : idx)}
                       style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
                     >
                       <div style={{ flex: 1 }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{r.teacher_name}</span>
+                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-muted)' }}>Response {idx + 1}</span>
                       </div>
                       <span style={{
                         fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4,
@@ -521,11 +521,11 @@ export default function AdminDashboard() {
                         {r.completed ? 'Completed' : 'In Progress'}
                       </span>
                       <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
-                        {expandedSurvey === r.teacher_id ? '▾' : '▸'}
+                        {expandedSurvey === idx ? '▾' : '▸'}
                       </span>
                     </button>
 
-                    {expandedSurvey === r.teacher_id && (
+                    {expandedSurvey === idx && (
                       <div style={{ borderTop: '1px solid var(--border)', padding: '1rem' }}>
                         {Object.keys(r.responses || {}).length === 0 ? (
                           <p className="text-muted text-sm" style={{ fontStyle: 'italic' }}>No answers recorded yet.</p>
