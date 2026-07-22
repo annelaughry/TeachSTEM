@@ -144,16 +144,23 @@ class ClassroomListSerializer(serializers.ModelSerializer):
 
 class ClassroomDetailSerializer(ClassroomListSerializer):
     students = serializers.SerializerMethodField()
+    teachers = serializers.SerializerMethodField()
     assigned_activities = ActivityListSerializer(many=True, read_only=True)
     assigned_modules = serializers.SerializerMethodField()
 
     class Meta(ClassroomListSerializer.Meta):
-        fields = ClassroomListSerializer.Meta.fields + ['students', 'assigned_activities', 'assigned_modules']
+        fields = ClassroomListSerializer.Meta.fields + ['students', 'teachers', 'assigned_activities', 'assigned_modules']
 
     def get_students(self, obj):
         return [
             {'id': u.id, 'name': u.get_full_name() or u.username, 'username': u.username}
             for u in obj.students.all()
+        ]
+
+    def get_teachers(self, obj):
+        return [
+            {'id': u.id, 'name': u.get_full_name() or u.username, 'username': u.username}
+            for u in obj.teachers.all()
         ]
 
     def get_assigned_modules(self, obj):

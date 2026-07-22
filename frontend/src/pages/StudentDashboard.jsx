@@ -77,7 +77,7 @@ export default function StudentDashboard() {
           <section key={cl.id} style={{ marginBottom: '2.5rem' }}>
             <div className="section-title">{cl.name}</div>
             <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
-              Teacher: {cl.teacher}
+              Teacher{cl.teachers.length !== 1 ? 's' : ''}: {cl.teachers.join(', ')}
             </p>
 
             {cl.assigned_modules.length === 0 && cl.assigned_activities.length === 0 && (

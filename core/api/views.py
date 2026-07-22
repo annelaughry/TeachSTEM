@@ -390,12 +390,13 @@ def api_classrooms(request):
     if not _teacher_required(request):
         return Response({'error': 'Teacher access required.'}, status=403)
     if request.method == 'GET':
-        qs = Classroom.objects.filter(teacher=request.user).prefetch_related('students', 'assigned_activities', 'assigned_modules')
+        qs = Classroom.objects.filter(teachers=request.user).prefetch_related('students', 'assigned_activities', 'assigned_modules')
         return Response(ClassroomListSerializer(qs, many=True).data)
     name = request.data.get('name', '').strip()
     if not name:
         return Response({'error': 'Name is required.'}, status=400)
-    classroom = Classroom.objects.create(name=name, teacher=request.user)
+    classroom = Classroom.objects.create(name=name)
+    classroom.teachers.add(request.user)
     return Response(ClassroomListSerializer(classroom).data, status=201)
 
 
@@ -404,7 +405,7 @@ def api_classroom_detail(request, pk):
     if not _teacher_required(request):
         return Response({'error': 'Teacher access required.'}, status=403)
     try:
-        classroom = Classroom.objects.get(pk=pk, teacher=request.user)
+        classroom = Classroom.objects.get(pk=pk, teachers=request.user)
     except Classroom.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
     if request.method == 'DELETE':
@@ -418,7 +419,7 @@ def api_classroom_assign_activities(request, pk):
     if not _teacher_required(request):
         return Response({'error': 'Teacher access required.'}, status=403)
     try:
-        classroom = Classroom.objects.get(pk=pk, teacher=request.user)
+        classroom = Classroom.objects.get(pk=pk, teachers=request.user)
     except Classroom.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
     activity_ids = request.data.get('activity_ids', [])
@@ -431,12 +432,73 @@ def api_classroom_assign_modules(request, pk):
     if not _teacher_required(request):
         return Response({'error': 'Teacher access required.'}, status=403)
     try:
-        classroom = Classroom.objects.get(pk=pk, teacher=request.user)
+        classroom = Classroom.objects.get(pk=pk, teachers=request.user)
     except Classroom.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
     module_ids = request.data.get('module_ids', [])
     classroom.assigned_modules.set(module_ids)
     return Response({'ok': True})
+
+
+@api_view(['GET'])
+def api_teacher_search(request):
+    """Search approved teacher accounts, for adding a co-teacher to a classroom."""
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+    q = request.GET.get('q', '').strip()
+    qs = TeacherProfile.objects.filter(is_approved=True).select_related('user')
+    if q:
+        qs = qs.filter(
+            Q(user__first_name__icontains=q) |
+            Q(user__last_name__icontains=q) |
+            Q(user__username__icontains=q) |
+            Q(user__email__icontains=q)
+        )
+    return Response([
+        {
+            'id': tp.user.id,
+            'name': tp.user.get_full_name() or tp.user.username,
+            'username': tp.user.username,
+            'email': tp.user.email,
+        }
+        for tp in qs.order_by('user__last_name', 'user__first_name')
+    ])
+
+
+@api_view(['POST'])
+def api_classroom_add_teacher(request, pk):
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+    try:
+        classroom = Classroom.objects.get(pk=pk, teachers=request.user)
+    except Classroom.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    try:
+        target = User.objects.get(pk=request.data.get('user_id'))
+    except (User.DoesNotExist, ValueError, TypeError):
+        return Response({'error': 'Teacher not found.'}, status=404)
+    if not (hasattr(target, 'teacher_profile') and target.teacher_profile.is_approved):
+        return Response({'error': 'Teacher not found.'}, status=404)
+    classroom.teachers.add(target)
+    return Response(ClassroomDetailSerializer(classroom).data)
+
+
+@api_view(['POST'])
+def api_classroom_remove_teacher(request, pk):
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+    try:
+        classroom = Classroom.objects.get(pk=pk, teachers=request.user)
+    except Classroom.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    if classroom.teachers.count() <= 1:
+        return Response({'error': 'A classroom must have at least one teacher.'}, status=400)
+    try:
+        target = User.objects.get(pk=request.data.get('user_id'))
+    except (User.DoesNotExist, ValueError, TypeError):
+        return Response({'error': 'Teacher not found.'}, status=404)
+    classroom.teachers.remove(target)
+    return Response(ClassroomDetailSerializer(classroom).data)
 
 
 @api_view(['POST'])
@@ -455,7 +517,7 @@ def api_student_classrooms(request):
     qs = request.user.enrolled_classrooms.prefetch_related(
         'assigned_activities__grade_levels',
         'assigned_modules__module_activities__activity__grade_levels',
-        'teacher',
+        'teachers',
     ).all()
     result = []
     for classroom in qs:
@@ -487,7 +549,7 @@ def api_student_classrooms(request):
         result.append({
             'id': classroom.pk,
             'name': classroom.name,
-            'teacher': classroom.teacher.get_full_name() or classroom.teacher.username,
+            'teachers': [t.get_full_name() or t.username for t in classroom.teachers.all()],
             'assigned_activities': ActivityListSerializer(classroom.assigned_activities.all(), many=True).data,
             'assigned_modules': modules_data,
         })
@@ -659,9 +721,9 @@ def api_teacher_responses(request, activity_pk):
     except Activity.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
 
-    direct_classrooms = Classroom.objects.filter(teacher=request.user, assigned_activities=activity)
+    direct_classrooms = Classroom.objects.filter(teachers=request.user, assigned_activities=activity)
     module_classrooms = Classroom.objects.filter(
-        teacher=request.user,
+        teachers=request.user,
         assigned_modules__module_activities__activity=activity,
     )
     all_classrooms = list((direct_classrooms | module_classrooms).distinct())
@@ -732,7 +794,7 @@ def api_classroom_activity_points(request, classroom_pk, activity_pk):
     if not _teacher_required(request):
         return Response({'error': 'Teacher access required.'}, status=403)
     try:
-        classroom = Classroom.objects.get(pk=classroom_pk, teacher=request.user)
+        classroom = Classroom.objects.get(pk=classroom_pk, teachers=request.user)
         activity = Activity.objects.prefetch_related('sections').get(pk=activity_pk)
     except (Classroom.DoesNotExist, Activity.DoesNotExist):
         return Response({'error': 'Not found.'}, status=404)
@@ -762,7 +824,7 @@ def api_save_section_score(request, section_pk, student_pk, classroom_pk):
     try:
         section = ActivitySection.objects.get(pk=section_pk)
         student = User.objects.get(pk=student_pk)
-        classroom = Classroom.objects.get(pk=classroom_pk, teacher=request.user)
+        classroom = Classroom.objects.get(pk=classroom_pk, teachers=request.user)
     except (ActivitySection.DoesNotExist, User.DoesNotExist, Classroom.DoesNotExist):
         return Response({'error': 'Not found.'}, status=404)
 

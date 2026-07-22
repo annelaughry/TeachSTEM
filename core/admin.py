@@ -39,11 +39,15 @@ class TeacherProfileAdmin(admin.ModelAdmin):
 
 @admin.register(Classroom)
 class ClassroomAdmin(admin.ModelAdmin):
-    list_display = ('name', 'teacher', 'code', 'created_at')
-    list_filter = ('teacher',)
+    list_display = ('name', 'get_teachers', 'code', 'created_at')
+    list_filter = ('teachers',)
     search_fields = ('name', 'code')
     readonly_fields = ('code',)
-    filter_horizontal = ('assigned_activities',)
+    filter_horizontal = ('teachers', 'assigned_activities')
+
+    def get_teachers(self, obj):
+        return ', '.join(t.get_full_name() or t.username for t in obj.teachers.all())
+    get_teachers.short_description = 'Teachers'
 
 
 @admin.register(Strand)

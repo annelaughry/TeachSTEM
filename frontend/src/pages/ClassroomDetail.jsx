@@ -1,17 +1,68 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import api from '../api'
+import { useAuth } from '../AuthContext'
 
 export default function ClassroomDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [classroom, setClassroom] = useState(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
 
+  // Co-teacher management
+  const [teacherQuery, setTeacherQuery] = useState('')
+  const [teacherResults, setTeacherResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [addingId, setAddingId] = useState(null)
+  const [removingId, setRemovingId] = useState(null)
+  const searchTimeout = useRef(null)
+
   useEffect(() => {
     api.get(`classrooms/${id}/`).then(r => setClassroom(r.data)).finally(() => setLoading(false))
   }, [id])
+
+  const searchTeachers = (q) => {
+    setTeacherQuery(q)
+    clearTimeout(searchTimeout.current)
+    if (!q.trim()) { setTeacherResults([]); return }
+    searchTimeout.current = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const { data } = await api.get('teachers/search/', { params: { q } })
+        setTeacherResults(data)
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+  }
+
+  const addTeacher = async (teacherId) => {
+    setAddingId(teacherId)
+    try {
+      const { data } = await api.post(`classrooms/${id}/teachers/add/`, { user_id: teacherId })
+      setClassroom(data)
+      setTeacherQuery('')
+      setTeacherResults([])
+    } finally {
+      setAddingId(null)
+    }
+  }
+
+  const removeTeacher = async (teacherId) => {
+    setRemovingId(teacherId)
+    try {
+      const { data } = await api.post(`classrooms/${id}/teachers/remove/`, { user_id: teacherId })
+      if (teacherId === user?.id) {
+        navigate('/teacher')
+        return
+      }
+      setClassroom(data)
+    } finally {
+      setRemovingId(null)
+    }
+  }
 
   const removeActivity = async (actId) => {
     const next = classroom.assigned_activities.filter(a => a.id !== actId)
@@ -53,6 +104,53 @@ export default function ClassroomDetail() {
             </span>
           </p>
         </div>
+
+        {/* Teachers */}
+        <section style={{ marginBottom: '2rem' }}>
+          <div className="section-title">Teachers ({classroom.teachers?.length || 0})</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.75rem' }}>
+            {classroom.teachers?.map(t => (
+              <div key={t.id} className="card" style={{ padding: '0.6rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                <span>{t.name}{t.id === user?.id ? ' (you)' : ''}</span>
+                {classroom.teachers.length > 1 && (
+                  <button
+                    onClick={() => removeTeacher(t.id)}
+                    className="btn btn--danger btn--sm"
+                    disabled={removingId === t.id}
+                  >
+                    {removingId === t.id ? 'Removing…' : 'Remove'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <input
+            className="form-input"
+            style={{ marginBottom: '0.5rem' }}
+            placeholder="Search teachers by name, username, or email to add a co-teacher…"
+            value={teacherQuery}
+            onChange={e => searchTeachers(e.target.value)}
+          />
+          {searching && <p className="text-muted text-sm">Searching…</p>}
+          {!searching && teacherQuery && teacherResults.length === 0 && (
+            <p className="text-muted text-sm" style={{ fontStyle: 'italic' }}>No teachers found.</p>
+          )}
+          {teacherResults.filter(t => !classroom.teachers?.some(ct => ct.id === t.id)).map(t => (
+            <div key={t.id} className="card" style={{ padding: '0.6rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+              <div>
+                <div style={{ fontWeight: 700 }}>{t.name}</div>
+                <div className="text-muted text-sm">@{t.username}{t.email ? ` · ${t.email}` : ''}</div>
+              </div>
+              <button
+                onClick={() => addTeacher(t.id)}
+                className="btn btn--teal btn--sm"
+                disabled={addingId === t.id}
+              >
+                {addingId === t.id ? 'Adding…' : 'Add'}
+              </button>
+            </div>
+          ))}
+        </section>
 
         {/* Students */}
         <section style={{ marginBottom: '2rem' }}>

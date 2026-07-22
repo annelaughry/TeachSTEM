@@ -69,6 +69,7 @@ export default function TeacherDashboard() {
           )}
           <Link to="/teacher/module/create" className="btn btn--teal">+ New Module</Link>
           <Link to="/teacher/modules" className="btn" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', borderColor: 'rgba(255,255,255,0.4)' }}>My Modules</Link>
+          <Link to="/join" className="btn" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', borderColor: 'rgba(255,255,255,0.4)' }}>Join a Classroom</Link>
         </div>
       </div>
 

@@ -405,7 +405,7 @@ class ThreeTwoOneResponse(models.Model):
 
 class Classroom(models.Model):
     name = models.CharField(max_length=100)
-    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='classrooms')
+    teachers = models.ManyToManyField(User, related_name='classrooms')
     code = models.CharField(max_length=8, unique=True, editable=False)
     students = models.ManyToManyField(User, blank=True, related_name='enrolled_classrooms')
     assigned_activities = models.ManyToManyField(Activity, blank=True, related_name='classrooms')
@@ -422,4 +422,4 @@ class Classroom(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.name} ({self.teacher.username})"
+        return self.name

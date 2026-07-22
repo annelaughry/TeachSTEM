@@ -35,7 +35,6 @@ function RequireAuth({ children, role }) {
   if (!user) return <Navigate to="/login" replace />
   if (role === 'teacher' && !isTeacher) return <Navigate to="/student" replace />
   if (role === 'admin' && !isAdmin) return <Navigate to="/" replace />
-  if (role === 'student' && isTeacher) return <Navigate to="/teacher" replace />
   if (role === 'teach_stem' && !isTeachSTEM) return <Navigate to="/teacher" replace />
   return children
 }

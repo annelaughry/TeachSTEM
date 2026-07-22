@@ -38,7 +38,10 @@ urlpatterns = [
     path('classrooms/<int:pk>/', views.api_classroom_detail, name='api_classroom_detail'),
     path('classrooms/<int:pk>/assign-activities/', views.api_classroom_assign_activities),
     path('classrooms/<int:pk>/assign-modules/', views.api_classroom_assign_modules),
+    path('classrooms/<int:pk>/teachers/add/', views.api_classroom_add_teacher),
+    path('classrooms/<int:pk>/teachers/remove/', views.api_classroom_remove_teacher),
     path('classrooms/join/', views.api_join_classroom, name='api_join_classroom'),
+    path('teachers/search/', views.api_teacher_search, name='api_teacher_search'),
 
     # Student classrooms
     path('student/classrooms/', views.api_student_classrooms, name='api_student_classrooms'),
