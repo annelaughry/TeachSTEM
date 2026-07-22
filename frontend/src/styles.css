@@ -107,6 +107,28 @@ h4 { font-size: 1rem; font-weight: 700; }
 .nav__link:hover { background: rgba(255,255,255,0.15); color: white; }
 .nav__link--active { background: rgba(255,255,255,0.2); color: white; }
 
+.nav__toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.nav__toggle span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: white;
+  border-radius: 2px;
+  margin: 0 auto;
+}
+
 /* ── Buttons ── */
 .btn {
   display: inline-flex;
@@ -445,3 +467,58 @@ footer {
 .font-black { font-weight: 900; }
 .w-full { width: 100%; }
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Two-column grid (collapses on mobile) ── */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .nav { padding: 0 1rem; }
+  .nav__toggle { display: flex; }
+
+  .nav__links {
+    display: none;
+    position: fixed;
+    top: var(--nav-h);
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin-left: 0;
+    background: var(--pink-dark);
+    padding: 0.5rem;
+    max-height: calc(100vh - var(--nav-h));
+    overflow-y: auto;
+    box-shadow: var(--shadow-md);
+  }
+  .nav__links--open { display: flex; }
+  .nav__links .nav__link {
+    padding: 0.85rem 1rem;
+    text-align: left;
+    font-size: 0.95rem;
+  }
+
+  .container, .container--wide, .container--narrow { padding: 0 1rem; }
+
+  .hero { padding: 2rem 1.25rem 2.5rem; margin-bottom: 1.75rem; }
+  .hero h1 { font-size: 1.6rem; }
+  .hero p { font-size: 0.95rem; }
+
+  .card { padding: 1rem; }
+
+  .search-bar { flex-direction: column; }
+  .search-bar .form-input { min-width: 0; width: 100%; }
+
+  .activity-card { flex-direction: column; gap: 0.5rem; }
+  .activity-card__title { white-space: normal; }
+
+  .module-row { flex-direction: column; gap: 0.4rem; }
+  .module-row__num { text-align: left; }
+
+  .grid-2 { grid-template-columns: 1fr; }
+}

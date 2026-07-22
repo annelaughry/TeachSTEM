@@ -113,7 +113,7 @@ export default function ThreeTwoOneList() {
         <div className="card" style={{ marginTop: '2rem', padding: '1.75rem' }}>
           <h2 style={{ color: 'var(--teal-dark)', marginBottom: '1.25rem', fontSize: '1.05rem' }}>New Assignment</h2>
           <form onSubmit={handleCreate}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="grid-2" style={{ marginBottom: '1rem' }}>
               <div>
                 <label className="label">Title <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span></label>
                 <input

@@ -1,24 +1,39 @@
+import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 
 export default function Nav() {
   const { user, logout, isTeacher, isAdmin, isTeachSTEM } = useAuth()
   const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
 
   const handleLogout = () => {
+    setOpen(false)
     logout()
     navigate('/login')
   }
 
   return (
     <nav className="nav">
-      <Link to="/" className="nav__brand">
+      <Link to="/" className="nav__brand" onClick={() => setOpen(false)}>
         <div className="nav__logo-box">
           <img src="/logo.png" alt="Young Scientist Academy" className="nav__logo-img" />
         </div>
       </Link>
 
-      <div className="nav__links">
+      <button
+        type="button"
+        className="nav__toggle"
+        aria-label="Toggle menu"
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <div className={'nav__links' + (open ? ' nav__links--open' : '')} onClick={() => setOpen(false)}>
         {!user && (
           <>
             <NavLink to="/" className={({ isActive }) => 'nav__link' + (isActive ? ' nav__link--active' : '')}>Library</NavLink>

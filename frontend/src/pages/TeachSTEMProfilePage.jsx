@@ -108,7 +108,7 @@ export default function TeachSTEMProfilePage() {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <div className="grid-2" style={{ gap: '0.75rem', marginBottom: '1.25rem' }}>
               <div>
                 <label className="form-label">Number of Students Taught</label>
                 <input

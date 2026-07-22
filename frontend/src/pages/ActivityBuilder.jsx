@@ -233,7 +233,7 @@ export default function ActivityBuilder() {
             <label className="form-label">Title <span style={{ color: 'var(--pink)' }}>*</span></label>
             <input className="form-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Activity title" />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Activity Type</label>
               <select className="form-input" value={actType} onChange={e => setActType(e.target.value)}>
