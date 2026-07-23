@@ -12,7 +12,7 @@ const BLANK = {
 }
 
 const STATUS_LABELS = {
-  draft:     { label: 'Draft',               color: '#888' },
+  draft:     { label: 'Draft',               color: '#2D2D2D' },
   submitted: { label: 'Submitted for Review', color: 'var(--teal-dark)' },
   reviewed:  { label: 'Reviewed',             color: '#2e7d32' },
 }

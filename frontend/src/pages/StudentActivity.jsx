@@ -188,7 +188,7 @@ function DataTable({ tableHeaders, initialData, onChange }) {
               ))}
               <td style={{ border: '1px solid var(--border)', textAlign: 'center' }}>
                 <button type="button" onClick={() => removeRow(ri)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontWeight: 700, padding: '0 0.35rem' }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2D2D2D', fontWeight: 700, padding: '0 0.35rem' }}
                   onMouseEnter={e => e.target.style.color = '#c00'} onMouseLeave={e => e.target.style.color = '#ccc'}>
                   ×
                 </button>

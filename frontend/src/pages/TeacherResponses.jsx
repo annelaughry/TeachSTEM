@@ -221,14 +221,14 @@ export default function TeacherResponses() {
                                     <>
                                       {prompt.response_type === 'text' && (
                                         <div style={{ background: '#fafafa', border: '1px solid var(--border)', borderRadius: 8, padding: '0.75rem', fontSize: '0.9rem', lineHeight: 1.7, whiteSpace: 'pre-wrap', color: '#333', minHeight: 40 }}>
-                                          {resp.response_text || <span style={{ color: '#aaa', fontStyle: 'italic' }}>Empty response.</span>}
+                                          {resp.response_text || <span style={{ color: '#2D2D2D', fontStyle: 'italic' }}>Empty response.</span>}
                                         </div>
                                       )}
 
                                       {prompt.response_type === 'video' && (
                                         resp.response_video
                                           ? <video controls playsInline src={resp.response_video} style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, border: '2px solid var(--teal)', display: 'block' }} />
-                                          : <p style={{ color: '#aaa', fontStyle: 'italic', fontSize: '0.88rem' }}>No video uploaded.</p>
+                                          : <p style={{ color: '#2D2D2D', fontStyle: 'italic', fontSize: '0.88rem' }}>No video uploaded.</p>
                                       )}
 
                                       {prompt.response_type === 'table' && (
@@ -255,7 +255,7 @@ export default function TeacherResponses() {
                                               </tbody>
                                             </table>
                                           </div>
-                                        ) : <p style={{ color: '#aaa', fontStyle: 'italic', fontSize: '0.88rem' }}>No table submitted.</p>
+                                        ) : <p style={{ color: '#2D2D2D', fontStyle: 'italic', fontSize: '0.88rem' }}>No table submitted.</p>
                                       )}
 
                                       {/* Feedback */}
@@ -273,7 +273,7 @@ export default function TeacherResponses() {
                                       </div>
                                     </>
                                   ) : (
-                                    <div style={{ color: '#aaa', fontStyle: 'italic', fontSize: '0.85rem', padding: '0.3rem 0' }}>
+                                    <div style={{ color: '#2D2D2D', fontStyle: 'italic', fontSize: '0.85rem', padding: '0.3rem 0' }}>
                                       No response yet.
                                     </div>
                                   )}

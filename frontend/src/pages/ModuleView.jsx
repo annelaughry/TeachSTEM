@@ -40,13 +40,13 @@ export default function ModuleView() {
               <div key={act.id} className="module-row module-row--locked">
                 <div className="module-row__num">—</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, color: '#aaa', fontSize: '1rem', marginBottom: '0.15rem' }}>{act.title}</div>
-                  <div className="text-sm" style={{ color: '#bbb' }}>
+                  <div style={{ fontWeight: 700, color: '#2D2D2D', fontSize: '1rem', marginBottom: '0.15rem' }}>{act.title}</div>
+                  <div className="text-sm" style={{ color: '#2D2D2D' }}>
                     {act.activity_type?.replace('_', ' ')}
                     {act.grade_levels?.map(g => <span key={g}> · {g}</span>)}
                     {act.duration_minutes > 0 && <span> · {act.duration_minutes} min</span>}
                   </div>
-                  <div style={{ fontSize: '0.82rem', color: '#bbb', marginTop: '0.35rem' }}>
+                  <div style={{ fontSize: '0.82rem', color: '#2D2D2D', marginTop: '0.35rem' }}>
                     Complete the previous activity to unlock this one.
                   </div>
                 </div>
@@ -61,7 +61,7 @@ export default function ModuleView() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <span className="badge badge--green" style={{ marginBottom: '0.4rem', display: 'inline-flex' }}>Completed</span>
                   <div style={{ fontWeight: 700, color: '#2e7d32', fontSize: '1rem', marginBottom: '0.15rem' }}>{act.title}</div>
-                  <div className="text-sm" style={{ color: '#777' }}>
+                  <div className="text-sm" style={{ color: '#2D2D2D' }}>
                     {act.activity_type?.replace('_', ' ')}
                     {act.grade_levels?.map(g => <span key={g}> · {g}</span>)}
                     {act.duration_minutes > 0 && <span> · {act.duration_minutes} min</span>}

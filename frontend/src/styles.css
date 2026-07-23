@@ -21,8 +21,8 @@
   --yellow-dark: #D9901A;
   --yellow-light:#FEF5E7;
   --text:        #2D2D2D;
-  --text-muted:  #777;
-  --text-light:  #aaa;
+  --text-muted:  #2D2D2D;
+  --text-light:  #2D2D2D;
   --border:      #EEE;
   --bg:          #F7F8FC;
   --white:       #FFFFFF;
@@ -393,7 +393,7 @@ h4 { font-size: 1rem; font-weight: 700; }
   padding-top: 0.05rem;
 }
 .module-row--complete .module-row__num { color: #2e7d32; }
-.module-row--locked   .module-row__num { color: #bbb; }
+.module-row--locked   .module-row__num { color: #2D2D2D; }
 .module-row:not(.module-row--complete):not(.module-row--locked) .module-row__num { color: var(--pink); }
 
 /* ── Search ── */
