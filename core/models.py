@@ -276,12 +276,14 @@ class ProjectTopicSubmission(models.Model):
         ('reviewed', 'Reviewed'),
     ]
     teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_topic_submissions')
+    overview = models.TextField(blank=True, help_text='Project goal/overview.')
     classroom_name = models.CharField(max_length=200, blank=True)
     grade_level = models.CharField(max_length=100, blank=True)
     num_students = models.CharField(max_length=50, blank=True)
     standards = models.TextField(blank=True)
     background_concepts = models.TextField(blank=True)
     research_questions = models.JSONField(default=list, blank=True)
+    materials = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     admin_feedback = models.TextField(blank=True)
     reviewed_by = models.ForeignKey(

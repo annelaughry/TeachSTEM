@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom'
 import api from '../api'
 
 const BLANK = {
+  overview: '',
   classroom_name: '',
   grade_level: '',
   num_students: '',
   standards: '',
   background_concepts: '',
   research_questions: ['', '', ''],
+  materials: '',
 }
 
 const STATUS_LABELS = {
@@ -142,6 +144,14 @@ export default function ProjectTopics() {
             </div>
           )}
 
+          {/* Project Goal / Overview */}
+          <SectionHeading>Project Goal / Overview</SectionHeading>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label">What will students build, investigate, or create?</label>
+            <textarea className="form-input" rows={4} value={form.overview} onChange={e => set('overview', e.target.value)} />
+            <p className="text-muted text-sm" style={{ marginTop: '0.3rem' }}>Briefly describe the overall goal of this project.</p>
+          </div>
+
           {/* Class Details */}
           <SectionHeading>Class Details</SectionHeading>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
@@ -213,6 +223,14 @@ export default function ProjectTopics() {
             + Add another question
           </button>
 
+          {/* Materials */}
+          <SectionHeading>Materials</SectionHeading>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label">Materials and supplies needed for this project</label>
+            <textarea className="form-input" rows={4} value={form.materials} onChange={e => set('materials', e.target.value)} />
+            <p className="text-muted text-sm" style={{ marginTop: '0.3rem' }}>List each item on its own line.</p>
+          </div>
+
           {/* Submit for Review notice */}
           <div style={{ background: '#f0faf8', border: '1px solid var(--teal-light)', borderRadius: 8, padding: '0.85rem 1.1rem', marginBottom: '1.25rem', fontSize: '0.88rem', color: 'var(--teal-dark)' }}>
             Submitting for review sends this plan to an admin, who will provide feedback. You must have at least 3 research questions to submit.
@@ -269,6 +287,9 @@ export default function ProjectTopics() {
                   {expanded === entry.id && (
                     <div style={{ padding: '0 1.25rem 1.25rem', borderTop: '1px solid var(--border)' }}>
 
+                      {entry.overview && (
+                        <EntrySection label="Project Goal / Overview">{entry.overview}</EntrySection>
+                      )}
                       {entry.standards && (
                         <EntrySection label="Standards">{entry.standards}</EntrySection>
                       )}
@@ -284,6 +305,9 @@ export default function ProjectTopics() {
                             ))}
                           </ol>
                         </div>
+                      )}
+                      {entry.materials && (
+                        <EntrySection label="Materials">{entry.materials}</EntrySection>
                       )}
 
                       {/* Admin feedback */}

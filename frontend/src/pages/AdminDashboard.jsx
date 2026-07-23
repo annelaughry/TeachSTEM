@@ -323,6 +323,7 @@ export default function AdminDashboard() {
 
                 {expandedSub === sub.id && (
                   <div style={{ padding: '0 1.25rem 1.25rem', borderTop: '1px solid var(--border)' }}>
+                    {sub.overview && <ReviewField label="Project Goal / Overview">{sub.overview}</ReviewField>}
                     {sub.standards && <ReviewField label="Standards">{sub.standards}</ReviewField>}
                     {sub.background_concepts && <ReviewField label="Background Concepts">{sub.background_concepts}</ReviewField>}
                     {sub.research_questions?.length > 0 && (
@@ -335,6 +336,7 @@ export default function AdminDashboard() {
                         </ol>
                       </div>
                     )}
+                    {sub.materials && <ReviewField label="Materials">{sub.materials}</ReviewField>}
                     <div style={{ marginTop: '1.25rem' }}>
                       <ReviewLabel>Feedback</ReviewLabel>
                       <textarea

@@ -237,8 +237,8 @@ class ProjectTopicSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectTopicSubmission
         fields = [
-            'id', 'classroom_name', 'grade_level', 'num_students',
-            'standards', 'background_concepts', 'research_questions',
+            'id', 'overview', 'classroom_name', 'grade_level', 'num_students',
+            'standards', 'background_concepts', 'research_questions', 'materials',
             'status', 'admin_feedback', 'reviewed_by_name', 'reviewed_at',
             'submitted_at', 'teacher_name',
         ]
