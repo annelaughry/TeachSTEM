@@ -93,6 +93,10 @@ class Activity(models.Model):
     concepts = models.ManyToManyField(Concept, blank=True, related_name='activities')
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_activities')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    source_activity = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.SET_NULL, related_name='copies',
+        help_text='If this activity was copied from another one, points to the original.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

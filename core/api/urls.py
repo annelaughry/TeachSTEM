@@ -20,6 +20,7 @@ urlpatterns = [
     path('activities/create/', views.api_activity_create, name='api_activity_create'),
     path('activities/<int:pk>/', views.api_activity_detail, name='api_activity_detail'),
     path('activities/<int:pk>/edit/', views.api_activity_edit, name='api_activity_edit'),
+    path('activities/<int:pk>/copy/', views.api_activity_copy, name='api_activity_copy'),
     path('activities/<int:pk>/submit/', views.api_activity_submit, name='api_activity_submit'),
     path('activities/<int:pk>/delete/', views.api_activity_delete, name='api_activity_delete'),
     path('activities/<int:activity_pk>/responses/', views.api_student_responses, name='api_student_responses'),

@@ -1,5 +1,7 @@
 import json
+import os
 from django.contrib.auth import authenticate
+from django.core.files.base import ContentFile
 from django.contrib.auth.models import User
 from django.db.models import Q
 from rest_framework import status
@@ -19,7 +21,7 @@ from core.models import (
 )
 from core.views import _is_teacher, _save_sections_and_standards, _activity_completed_by
 from .serializers import (
-    UserSerializer, ActivityListSerializer, ActivityDetailSerializer,
+    UserSerializer, ActivityListSerializer, ActivityDetailSerializer, ActivitySectionSerializer,
     GradeLevelSerializer, StandardSerializer, ClassroomListSerializer,
     ClassroomDetailSerializer, ModuleSerializer, StudentResponseSerializer,
     TeacherStudentResponseSerializer, TeacherFeedbackSerializer,
@@ -271,6 +273,50 @@ def api_activity_edit(request, pk):
     _save_handout_files(activity, request)
 
     return Response(ActivityDetailSerializer(activity).data)
+
+
+@api_view(['POST'])
+def api_activity_copy(request, pk):
+    """Deep-clone an activity (sections/prompts/links/files) into a new draft owned by the
+    requesting teacher, so they can customize it for their class without touching the original."""
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+    try:
+        source = Activity.objects.get(pk=pk)
+    except Activity.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+    clone = Activity.objects.create(
+        title=f"{source.title} (Copy)",
+        description=source.description,
+        materials=source.materials,
+        activity_type=source.activity_type,
+        duration_minutes=source.duration_minutes,
+        video_url=source.video_url,
+        is_restricted=False,
+        created_by=request.user,
+        status='draft',
+        source_activity=source,
+    )
+    clone.grade_levels.set(source.grade_levels.all())
+    clone.standards.set(source.standards.all())
+    clone.concepts.set(source.concepts.all())
+
+    if source.instructions_pdf:
+        clone.instructions_pdf.save(
+            os.path.basename(source.instructions_pdf.name),
+            ContentFile(source.instructions_pdf.read()),
+            save=True,
+        )
+
+    sections_data = ActivitySectionSerializer(source.sections.all(), many=True).data
+    _save_sections_from_json(clone, sections_data)
+
+    for f in source.handout_files.all():
+        new_file = ActivityFile(activity=clone, label=f.label, description=f.description, order=f.order)
+        new_file.file.save(os.path.basename(f.file.name), ContentFile(f.file.read()), save=True)
+
+    return Response(ActivityDetailSerializer(clone).data, status=201)
 
 
 def _save_handout_files(activity, request):

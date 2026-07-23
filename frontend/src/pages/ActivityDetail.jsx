@@ -11,12 +11,13 @@ function toEmbedUrl(url) {
   if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
   return null
 }
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import api from '../api'
 
 export default function ActivityDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { user, isTeacher } = useAuth()
   const [activity, setActivity]     = useState(null)
   const [classrooms, setClassrooms] = useState([])
@@ -26,6 +27,7 @@ export default function ActivityDetail() {
   const [pointsConfig, setPointsConfig] = useState({})   // { classroomId: { sectionId: value } }
   const [savingPoints, setSavingPoints] = useState({})
   const [savedPoints, setSavedPoints]   = useState({})
+  const [copying, setCopying]       = useState(false)
 
   useEffect(() => {
     const reqs = [api.get(`activities/${id}/`)]
@@ -70,6 +72,16 @@ export default function ActivityDetail() {
       ...prev,
       [classroomId]: { ...(prev[classroomId] || {}), [sectionId]: value },
     }))
+  }
+
+  const copyForMyClass = async () => {
+    setCopying(true)
+    try {
+      const { data } = await api.post(`activities/${id}/copy/`)
+      navigate(`/teacher/activity/${data.id}/edit`)
+    } finally {
+      setCopying(false)
+    }
   }
 
   const savePoints = async (classroomId) => {
@@ -169,6 +181,11 @@ export default function ActivityDetail() {
             {activity.duration_minutes > 0 && <span className="badge badge--gray">{activity.duration_minutes} min</span>}
             {activity.standards.map(s => <span key={s.id} className="badge badge--teal">{s.code}</span>)}
           </div>
+          {activity.source_activity_title && (
+            <p className="text-muted text-sm" style={{ marginBottom: '0.75rem' }}>
+              Your copy of <strong>{activity.source_activity_title}</strong> — changes here won't affect the original.
+            </p>
+          )}
           <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
             {isTeacher && (
               <>
@@ -179,6 +196,9 @@ export default function ActivityDetail() {
                     Assign to Class
                   </button>
                 )}
+                <button onClick={copyForMyClass} className="btn btn--outline" disabled={copying} title="Make an editable copy for your class — the original in the library is untouched">
+                  {copying ? 'Copying...' : 'Copy & Customize for My Class'}
+                </button>
               </>
             )}
             {!isTeacher && user && (

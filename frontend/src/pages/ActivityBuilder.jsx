@@ -38,6 +38,7 @@ export default function ActivityBuilder() {
   const [newFiles, setNewFiles]     = useState([])        // [{file: File, label: string}]
   const fileInputRef                = useRef(null)
   const [actStatus, setActStatus]   = useState('draft')
+  const [sourceTitle, setSourceTitle] = useState(null)
   const [gradeLevels, setGradeLevels] = useState([])
   const [activityTypes, setActTypes] = useState([])
   const [errors, setErrors]         = useState([])
@@ -61,6 +62,7 @@ export default function ActivityBuilder() {
       setRestrictedTeacherIds(a.restricted_teacher_ids || [])
       setExistingFiles(a.handout_files || [])
       setActStatus(a.status)
+      setSourceTitle(a.source_activity_title || null)
       if (a.sections?.length) {
         setSections(a.sections.map(sec => ({
           _k: nextKey(),
@@ -204,6 +206,11 @@ export default function ActivityBuilder() {
             <Link to="/teacher" style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.88rem', fontWeight: 700, textDecoration: 'none' }}>← Teacher Dashboard</Link>
           </div>
           <h1 style={{ margin: 0 }}>{isEdit ? 'Edit Activity' : 'Create New Activity'}</h1>
+          {sourceTitle && (
+            <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '0.45rem 0.9rem', marginTop: '0.6rem', fontSize: '0.9rem' }}>
+              This is your own copy of <strong>{sourceTitle}</strong>. Add, remove, or edit sections freely — the original in the library won't change.
+            </div>
+          )}
           {actStatus === 'rejected' && (
             <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '0.45rem 0.9rem', marginTop: '0.6rem', fontSize: '0.9rem' }}>
               This activity was rejected. Make edits and resubmit.

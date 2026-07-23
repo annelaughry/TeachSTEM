@@ -82,12 +82,15 @@ class ActivityListSerializer(serializers.ModelSerializer):
     standards = StandardSerializer(many=True, read_only=True)
     created_by_name = serializers.SerializerMethodField()
     restricted_teacher_ids = serializers.SerializerMethodField()
+    source_activity_title = serializers.SerializerMethodField()
 
     class Meta:
         model = Activity
         fields = ['id', 'title', 'activity_type', 'grade_levels', 'duration_minutes',
                   'description', 'status', 'standards', 'created_by_name', 'created_at',
-                  'instructions_pdf', 'video_url', 'is_restricted', 'restricted_teacher_ids']
+                  'instructions_pdf', 'video_url', 'is_restricted', 'restricted_teacher_ids',
+                  'source_activity', 'source_activity_title']
+        read_only_fields = ['source_activity']
 
     def get_created_by_name(self, obj):
         if obj.created_by:
@@ -96,6 +99,9 @@ class ActivityListSerializer(serializers.ModelSerializer):
 
     def get_restricted_teacher_ids(self, obj):
         return list(obj.restricted_teachers.values_list('id', flat=True))
+
+    def get_source_activity_title(self, obj):
+        return obj.source_activity.title if obj.source_activity_id else None
 
 
 class ActivityDetailSerializer(ActivityListSerializer):

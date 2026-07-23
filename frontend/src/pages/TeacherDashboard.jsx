@@ -87,12 +87,14 @@ export default function TeacherDashboard() {
                     <h3 className="truncate" style={{ color: 'var(--text)' }}>{act.title}</h3>
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
                       <span className={`badge ${s.cls}`}>{s.label}</span>
+                      {act.source_activity_title && <span className="badge badge--teal">Copy</span>}
                       {act.grade_levels.map(g => <span key={g.id} className="badge badge--gray">{g.name}</span>)}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0, flexWrap: 'wrap' }}>
                     {(act.status === 'draft' || act.status === 'rejected') && (
                       <>
+                        <Link to={`/activity/${act.id}`} className="btn btn--ghost btn--sm">View</Link>
                         <Link to={`/teacher/activity/${act.id}/edit`} className="btn btn--outline btn--sm">Edit</Link>
                         {act.status === 'draft' && (
                           <>
