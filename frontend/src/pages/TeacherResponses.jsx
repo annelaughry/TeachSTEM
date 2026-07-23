@@ -227,7 +227,7 @@ export default function TeacherResponses() {
 
                                       {prompt.response_type === 'video' && (
                                         resp.response_video
-                                          ? <video controls src={resp.response_video} style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, border: '2px solid var(--teal)', display: 'block' }} />
+                                          ? <video controls playsInline src={resp.response_video} style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, border: '2px solid var(--teal)', display: 'block' }} />
                                           : <p style={{ color: '#aaa', fontStyle: 'italic', fontSize: '0.88rem' }}>No video uploaded.</p>
                                       )}
 

@@ -14,7 +14,7 @@ from core.models import (
     GradeLevel, Standard, Concept, Classroom, Module, ModuleActivity,
     TeacherProfile, StudentResponse, TeacherFeedback, ActivityFile,
     ClassroomSectionPoints, StudentSectionScore, LessonFeedback, TeachSTEMProfile, TeachSTEMTask,
-    TeachSTEMTaskCompletion, ProjectTopicSubmission, TStemSurveyResponse, TeacherSurveyResponse,
+    TeachSTEMTaskCompletion, ProjectTopicSubmission, ProjectStarter, TStemSurveyResponse, TeacherSurveyResponse,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
 )
 from core.views import _is_teacher, _save_sections_and_standards, _activity_completed_by
@@ -24,7 +24,7 @@ from .serializers import (
     ClassroomDetailSerializer, ModuleSerializer, StudentResponseSerializer,
     TeacherStudentResponseSerializer, TeacherFeedbackSerializer,
     LessonFeedbackSerializer, TeachSTEMProfileSerializer, TeachSTEMTaskSerializer,
-    ProjectTopicSubmissionSerializer, TStemSurveyResponseSerializer,
+    ProjectTopicSubmissionSerializer, ProjectStarterSerializer, TStemSurveyResponseSerializer,
     ThreeTwoOneAssignmentSerializer, ThreeTwoOneResponseSerializer,
     TeacherSurveyResponseSerializer,
 )
@@ -1082,6 +1082,81 @@ def api_admin_project_topic_feedback(request, pk):
     sub.status = 'reviewed'
     sub.save()
     return Response(ProjectTopicSubmissionSerializer(sub).data)
+
+
+@api_view(['GET', 'POST'])
+def api_project_starters(request):
+    if not _teach_stem_required(request):
+        return Response({'error': 'Teach STEM access required.'}, status=403)
+
+    if request.method == 'GET':
+        submissions = ProjectStarter.objects.filter(teacher=request.user)
+        return Response(ProjectStarterSerializer(submissions, many=True).data)
+
+    serializer = ProjectStarterSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save(teacher=request.user)
+    return Response(serializer.data, status=201)
+
+
+@api_view(['PUT'])
+def api_project_starter_update(request, pk):
+    if not _teach_stem_required(request):
+        return Response({'error': 'Teach STEM access required.'}, status=403)
+    try:
+        starter = ProjectStarter.objects.get(pk=pk, teacher=request.user)
+    except ProjectStarter.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    if starter.status != 'draft':
+        return Response({'error': 'Only drafts can be edited.'}, status=400)
+    serializer = ProjectStarterSerializer(starter, data=request.data, partial=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save()
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+def api_project_starter_submit(request, pk):
+    if not _teach_stem_required(request):
+        return Response({'error': 'Teach STEM access required.'}, status=403)
+    try:
+        starter = ProjectStarter.objects.get(pk=pk, teacher=request.user)
+    except ProjectStarter.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    if starter.status != 'draft':
+        return Response({'error': 'Already submitted.'}, status=400)
+    if not starter.title.strip():
+        return Response({'error': 'A title is required to submit for review.'}, status=400)
+    starter.status = 'submitted'
+    starter.save()
+    return Response(ProjectStarterSerializer(starter).data)
+
+
+@api_view(['GET'])
+def api_admin_project_starters(request):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    starters = ProjectStarter.objects.filter(status__in=['submitted', 'reviewed']).select_related('teacher', 'reviewed_by')
+    return Response(ProjectStarterSerializer(starters, many=True).data)
+
+
+@api_view(['POST'])
+def api_admin_project_starter_feedback(request, pk):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    try:
+        starter = ProjectStarter.objects.get(pk=pk)
+    except ProjectStarter.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    from django.utils import timezone
+    starter.admin_feedback = request.data.get('feedback', '').strip()
+    starter.reviewed_by = request.user
+    starter.reviewed_at = timezone.now()
+    starter.status = 'reviewed'
+    starter.save()
+    return Response(ProjectStarterSerializer(starter).data)
 
 
 @api_view(['GET'])

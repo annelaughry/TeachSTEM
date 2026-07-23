@@ -17,6 +17,19 @@ function toEmbedUrl(url) {
 
 // ── Video recorder sub-component ────────────────────────────────────────────
 
+// Container formats to try, in order of preference. iOS/Safari's MediaRecorder
+// only supports mp4 (no webm), while other browsers generally prefer webm.
+const VIDEO_MIME_CANDIDATES = ['video/webm', 'video/mp4']
+
+function pickSupportedMimeType() {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return ''
+  return VIDEO_MIME_CANDIDATES.find(t => MediaRecorder.isTypeSupported(t)) || ''
+}
+
+function extensionFor(mimeType) {
+  return mimeType.includes('mp4') ? 'mp4' : 'webm'
+}
+
 function VideoRecorder({ promptId, existingUrl, onSaved }) {
   const [mode, setMode] = useState('idle')   // 'idle' | 'recording' | 'preview' | 'saved'
   const [blob, setBlob] = useState(null)
@@ -30,14 +43,22 @@ function VideoRecorder({ promptId, existingUrl, onSaved }) {
 
   const start = async () => {
     setErr('')
+    if (typeof MediaRecorder === 'undefined') {
+      setErr('Video recording is not supported in this browser.')
+      return
+    }
     try {
       stream.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       if (preview.current) { preview.current.srcObject = stream.current; preview.current.play() }
       chunks.current = []
-      recorder.current = new MediaRecorder(stream.current)
+      const mimeType = pickSupportedMimeType()
+      recorder.current = mimeType ? new MediaRecorder(stream.current, { mimeType }) : new MediaRecorder(stream.current)
       recorder.current.ondataavailable = e => { if (e.data.size > 0) chunks.current.push(e.data) }
       recorder.current.onstop = () => {
-        const b = new Blob(chunks.current, { type: 'video/webm' })
+        // Use the recorder's actual mimeType (what it really encoded), not the
+        // requested one -- the browser may have picked something else.
+        const actualType = recorder.current.mimeType || 'video/webm'
+        const b = new Blob(chunks.current, { type: actualType })
         setBlob(b)
         setMode('preview')
         stream.current.getTracks().forEach(t => t.stop())
@@ -57,7 +78,7 @@ function VideoRecorder({ promptId, existingUrl, onSaved }) {
     setUploading(true)
     try {
       const fd = new FormData()
-      fd.append('response_video', blob, `response_${promptId}.webm`)
+      fd.append('response_video', blob, `response_${promptId}.${extensionFor(blob.type)}`)
       await api.post(`responses/${promptId}/save/`, fd)
       setMode('saved')
       onSaved?.()
@@ -77,7 +98,7 @@ function VideoRecorder({ promptId, existingUrl, onSaved }) {
       {existingUrl && mode === 'idle' && (
         <div style={{ marginBottom: '0.75rem' }}>
           <div style={{ fontSize: '0.82rem', color: 'var(--teal-dark)', fontWeight: 800, marginBottom: '0.3rem' }}>Your current response:</div>
-          <video controls src={existingUrl} style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 8, border: '2px solid var(--teal)', display: 'block' }} />
+          <video controls playsInline src={existingUrl} style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 8, border: '2px solid var(--teal)', display: 'block' }} />
         </div>
       )}
 
@@ -93,7 +114,7 @@ function VideoRecorder({ promptId, existingUrl, onSaved }) {
 
       {mode === 'preview' && blob && (
         <div>
-          <video ref={playback} controls style={{ width: '100%', maxWidth: 420, borderRadius: 8, border: '2px solid var(--teal)', display: 'block' }} />
+          <video ref={playback} controls playsInline style={{ width: '100%', maxWidth: 420, borderRadius: 8, border: '2px solid var(--teal)', display: 'block' }} />
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
             <button type="button" onClick={reset} className="btn btn--ghost btn--sm">Re-record</button>
             <button type="button" onClick={upload} className="btn btn--teal btn--sm" disabled={uploading}>

@@ -293,6 +293,33 @@ class ProjectTopicSubmission(models.Model):
         return f"{self.teacher.username} — {self.classroom_name or 'unnamed'} ({self.submitted_at.date()})"
 
 
+class ProjectStarter(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted for Review'),
+        ('reviewed', 'Reviewed'),
+    ]
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_starters')
+    title = models.CharField(max_length=200, blank=True)
+    overview = models.TextField(blank=True)
+    competencies = models.JSONField(default=list, blank=True, help_text='[{"skill": "", "description": ""}]')
+    steps = models.JSONField(default=list, blank=True, help_text='[{"heading": "", "items": [""]}]')
+    tips = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    admin_feedback = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name='reviewed_project_starters'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f"{self.teacher.username} — {self.title or 'untitled'} ({self.submitted_at.date()})"
+
+
 class TStemSurveyResponse(models.Model):
     teacher = models.OneToOneField(User, on_delete=models.CASCADE, related_name='tstem_survey')
     responses = models.JSONField(default=dict, blank=True)

@@ -18,6 +18,13 @@ export default function AdminDashboard() {
   const [savedFb, setSavedFb]           = useState({})
   const [expandedSub, setExpandedSub]   = useState(null)
 
+  // Project starter reviews
+  const [starterSubs, setStarterSubs]         = useState([])
+  const [starterFeedbacks, setStarterFeedbacks] = useState({})
+  const [savingStarterFb, setSavingStarterFb] = useState({})
+  const [savedStarterFb, setSavedStarterFb]   = useState({})
+  const [expandedStarter, setExpandedStarter] = useState(null)
+
   // Teacher search state
   const [teacherQuery, setTeacherQuery]   = useState('')
   const [teachers, setTeachers]           = useState([])
@@ -45,13 +52,16 @@ export default function AdminDashboard() {
       api.get('admin/dashboard/'),
       api.get('teach-stem/tasks/'),
       api.get('admin/project-topics/'),
+      api.get('admin/project-starters/'),
       api.get('admin/survey-results/tstem/'),
-    ]).then(([dash, t, ps, tstem]) => {
+    ]).then(([dash, t, ps, pst, tstem]) => {
       setData(dash.data)
       setTasks(t.data)
       setProjectSubs(ps.data)
+      setStarterSubs(pst.data)
       setTstemResults(tstem.data)
       if (ps.data.length > 0) setExpandedSub(ps.data[0].id)
+      if (pst.data.length > 0) setExpandedStarter(pst.data[0].id)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -141,6 +151,16 @@ export default function AdminDashboard() {
       setSavedFb(p => ({ ...p, [id]: true }))
       setTimeout(() => setSavedFb(p => { const n = { ...p }; delete n[id]; return n }), 2500)
     } finally { setSavingFb(p => ({ ...p, [id]: false })) }
+  }
+
+  const saveStarterFeedback = async (id) => {
+    setSavingStarterFb(p => ({ ...p, [id]: true }))
+    try {
+      const { data } = await api.post(`admin/project-starters/${id}/feedback/`, { feedback: starterFeedbacks[id] || '' })
+      setStarterSubs(prev => prev.map(s => s.id === id ? data : s))
+      setSavedStarterFb(p => ({ ...p, [id]: true }))
+      setTimeout(() => setSavedStarterFb(p => { const n = { ...p }; delete n[id]; return n }), 2500)
+    } finally { setSavingStarterFb(p => ({ ...p, [id]: false })) }
   }
 
   const deleteTask = async (id, title) => {
@@ -333,6 +353,115 @@ export default function AdminDashboard() {
                         style={{ background: savedFb[sub.id] ? '#2e7d32' : undefined }}
                       >
                         {savingFb[sub.id] ? 'Saving...' : savedFb[sub.id] ? 'Saved' : sub.status === 'reviewed' ? 'Update Feedback' : 'Submit Feedback'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </section>
+
+        {/* Project Starter Reviews */}
+        <section style={{ marginBottom: '2.5rem' }}>
+          <div className="section-title">Project Starter Submissions</div>
+          <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
+            Custom project guides Teach STEM teachers submitted for review.
+          </p>
+          {starterSubs.length === 0 ? (
+            <div className="empty" style={{ marginBottom: '1rem' }}>
+              <p style={{ fontStyle: 'italic' }}>No submissions yet.</p>
+            </div>
+          ) : (
+            starterSubs.map(sub => (
+              <div key={sub.id} className="card" style={{ marginBottom: '0.75rem', padding: 0, overflow: 'hidden', borderLeft: `4px solid ${sub.status === 'reviewed' ? '#2e7d32' : 'var(--teal)'}` }}>
+                <button
+                  type="button"
+                  onClick={() => setExpandedStarter(expandedStarter === sub.id ? null : sub.id)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1.25rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>
+                      {sub.title || 'Untitled starter'}
+                    </div>
+                    <div className="text-muted text-sm" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.1rem' }}>
+                      <span>{sub.teacher_name}</span>
+                      <span style={{ fontWeight: 700, color: sub.status === 'reviewed' ? '#2e7d32' : 'var(--teal-dark)' }}>
+                        {sub.status === 'reviewed' ? 'Reviewed' : 'Awaiting Review'}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '1.1rem', flexShrink: 0 }}>
+                    {expandedStarter === sub.id ? '▾' : '▸'}
+                  </span>
+                </button>
+
+                {expandedStarter === sub.id && (
+                  <div style={{ padding: '0 1.25rem 1.25rem', borderTop: '1px solid var(--border)' }}>
+                    {sub.overview && <ReviewField label="Overview">{sub.overview}</ReviewField>}
+
+                    {sub.competencies?.length > 0 && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <ReviewLabel>Project Competencies</ReviewLabel>
+                        <ul style={{ margin: '0.35rem 0 0 1.2rem', padding: 0 }}>
+                          {sub.competencies.map((c, i) => (
+                            <li key={i} style={{ fontSize: '0.92rem', color: '#333', marginBottom: '0.3rem' }}>
+                              {c.skill && <strong>{c.skill}: </strong>}{c.description}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {sub.steps?.length > 0 && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <ReviewLabel>Getting Started</ReviewLabel>
+                        <ol style={{ margin: '0.35rem 0 0 1.2rem', padding: 0 }}>
+                          {sub.steps.map((s, i) => (
+                            <li key={i} style={{ fontSize: '0.92rem', color: '#333', marginBottom: '0.4rem' }}>
+                              {s.heading && <strong>{s.heading}</strong>}
+                              {s.items?.length > 0 && (
+                                <ul style={{ margin: '0.25rem 0 0 1.1rem', padding: 0 }}>
+                                  {s.items.map((it, ii) => (
+                                    <li key={ii} style={{ marginBottom: '0.15rem' }}>{it}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+
+                    {sub.tips?.length > 0 && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <ReviewLabel>Tips for Success</ReviewLabel>
+                        <ul style={{ margin: '0.35rem 0 0 1.2rem', padding: 0 }}>
+                          {sub.tips.map((t, i) => (
+                            <li key={i} style={{ fontSize: '0.92rem', color: '#333', marginBottom: '0.3rem' }}>{t}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: '1.25rem' }}>
+                      <ReviewLabel>Feedback</ReviewLabel>
+                      <textarea
+                        className="form-input"
+                        rows={3}
+                        style={{ marginBottom: '0.5rem' }}
+                        value={starterFeedbacks[sub.id] ?? sub.admin_feedback ?? ''}
+                        onChange={e => setStarterFeedbacks(p => ({ ...p, [sub.id]: e.target.value }))}
+                        placeholder="Write feedback for this teacher..."
+                      />
+                      <button
+                        type="button"
+                        className="btn btn--teal btn--sm"
+                        onClick={() => saveStarterFeedback(sub.id)}
+                        disabled={savingStarterFb[sub.id]}
+                        style={{ background: savedStarterFb[sub.id] ? '#2e7d32' : undefined }}
+                      >
+                        {savingStarterFb[sub.id] ? 'Saving...' : savedStarterFb[sub.id] ? 'Saved' : sub.status === 'reviewed' ? 'Update Feedback' : 'Submit Feedback'}
                       </button>
                     </div>
                   </div>

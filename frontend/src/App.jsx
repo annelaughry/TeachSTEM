@@ -23,6 +23,7 @@ import TeachSTEMDashboard from './pages/TeachSTEMDashboard'
 import LessonFeedbackSurvey from './pages/LessonFeedbackSurvey'
 import TeachSTEMProfilePage from './pages/TeachSTEMProfilePage'
 import ProjectTopics from './pages/ProjectTopics'
+import ProjectStarterBuilder from './pages/ProjectStarterBuilder'
 import TStemSurvey from './pages/TStemSurvey'
 import TeacherSurvey from './pages/TeacherSurvey'
 import ThreeTwoOneList from './pages/ThreeTwoOneList'
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="/teach-stem/profile" element={<RequireAuth role="teach_stem"><TeachSTEMProfilePage /></RequireAuth>} />
         <Route path="/teach-stem/lesson-feedback" element={<RequireAuth role="teach_stem"><LessonFeedbackSurvey /></RequireAuth>} />
         <Route path="/teach-stem/project-topics" element={<RequireAuth role="teach_stem"><ProjectTopics /></RequireAuth>} />
+        <Route path="/teach-stem/project-starter" element={<RequireAuth role="teach_stem"><ProjectStarterBuilder /></RequireAuth>} />
         <Route path="/teach-stem/tstem-survey" element={<RequireAuth role="teach_stem"><TStemSurvey /></RequireAuth>} />
         <Route path="/teach-stem/321" element={<RequireAuth role="teach_stem"><ThreeTwoOneList /></RequireAuth>} />
         <Route path="/teach-stem/321/:id" element={<RequireAuth role="teach_stem"><ThreeTwoOneResponses /></RequireAuth>} />

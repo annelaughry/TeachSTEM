@@ -157,6 +157,12 @@ export default function TeachSTEMDashboard() {
             description="Document class details, standards, and the background concepts students will need before starting a project."
             color="var(--teal)"
           />
+          <DashCard
+            to="/teach-stem/project-starter"
+            title="Project Starter Builder"
+            description="Build a custom project guide with an overview, competencies, getting-started steps, and tips — then submit it to admin for review."
+            color="var(--teal-dark)"
+          />
         </div>
 
         {/* Formative Assessment */}

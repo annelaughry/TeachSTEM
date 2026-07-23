@@ -5,7 +5,7 @@ from core.models import (
     GradeLevel, Standard, Concept, Classroom, Module, ModuleActivity,
     TeacherProfile, StudentResponse, TeacherFeedback, ActivityFile,
     LessonFeedback, TeachSTEMProfile, TeachSTEMTask, TeachSTEMTaskCompletion,
-    ProjectTopicSubmission, TStemSurveyResponse, TeacherSurveyResponse,
+    ProjectTopicSubmission, ProjectStarter, TStemSurveyResponse, TeacherSurveyResponse,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
 )
 
@@ -233,6 +233,28 @@ class ProjectTopicSubmissionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'classroom_name', 'grade_level', 'num_students',
             'standards', 'background_concepts', 'research_questions',
+            'status', 'admin_feedback', 'reviewed_by_name', 'reviewed_at',
+            'submitted_at', 'teacher_name',
+        ]
+        read_only_fields = ['id', 'submitted_at', 'status', 'admin_feedback', 'reviewed_by_name', 'reviewed_at', 'teacher_name']
+
+    def get_teacher_name(self, obj):
+        return obj.teacher.get_full_name() or obj.teacher.username
+
+    def get_reviewed_by_name(self, obj):
+        if obj.reviewed_by:
+            return obj.reviewed_by.get_full_name() or obj.reviewed_by.username
+        return None
+
+
+class ProjectStarterSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.SerializerMethodField()
+    reviewed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProjectStarter
+        fields = [
+            'id', 'title', 'overview', 'competencies', 'steps', 'tips',
             'status', 'admin_feedback', 'reviewed_by_name', 'reviewed_at',
             'submitted_at', 'teacher_name',
         ]
