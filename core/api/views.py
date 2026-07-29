@@ -1087,6 +1087,23 @@ def api_project_topics(request):
     return Response(serializer.data, status=201)
 
 
+@api_view(['PUT'])
+def api_project_topic_update(request, pk):
+    """Edit a plan the teacher already saved — including ones already submitted or reviewed.
+    Any edit pulls it back to 'draft' so it must be resubmitted before an admin sees the changes."""
+    if not _teach_stem_required(request):
+        return Response({'error': 'Teach STEM access required.'}, status=403)
+    try:
+        sub = ProjectTopicSubmission.objects.get(pk=pk, teacher=request.user)
+    except ProjectTopicSubmission.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    serializer = ProjectTopicSubmissionSerializer(sub, data=request.data, partial=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save(status='draft')
+    return Response(ProjectTopicSubmissionSerializer(sub).data)
+
+
 @api_view(['POST'])
 def api_project_topic_submit(request, pk):
     if not _teach_stem_required(request):
@@ -1247,6 +1264,27 @@ def api_admin_all_teachers(request):
         }
         for tp in qs.order_by('user__last_name', 'user__first_name')
     ])
+
+
+@api_view(['GET'])
+def api_admin_teach_stem_profile(request, user_id):
+    """View a Teach STEM teacher's profile info (name, school, subject, etc.)."""
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    try:
+        tp = TeacherProfile.objects.select_related('user').get(user_id=user_id)
+    except TeacherProfile.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    if not tp.teach_stem_approved:
+        return Response({'error': 'This teacher is not a Teach STEM member.'}, status=400)
+
+    profile = TeachSTEMProfile.objects.filter(teacher_id=user_id).first()
+    data = TeachSTEMProfileSerializer(profile).data if profile else {
+        'id': None, 'name': '', 'school': '', 'subject_taught': '',
+        'num_students': None, 'years_teaching': None, 'email': '',
+    }
+    data['has_profile'] = profile is not None
+    return Response(data)
 
 
 @api_view(['POST'])

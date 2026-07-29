@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import api from '../api'
 
 const BLANK = {
+  id: null,
   overview: '',
   classroom_name: '',
   grade_level: '',
@@ -24,11 +25,9 @@ export default function ProjectTopics() {
   const [history, setHistory]       = useState([])
   const [saving, setSaving]         = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [savedId, setSavedId]       = useState(null)
   const [saveMsg, setSaveMsg]       = useState(null)
   const [error, setError]           = useState(null)
   const [expanded, setExpanded]     = useState(null)
-  const [feedbackOpen, setFeedbackOpen] = useState({})
 
   useEffect(() => {
     api.get('teach-stem/project-topics/').then(r => {
@@ -71,12 +70,18 @@ export default function ProjectTopics() {
     setError(null)
     setSaving(true)
     try {
-      const payload = { ...form, research_questions: form.research_questions.filter(q => q.trim()) }
-      const { data } = await api.post('teach-stem/project-topics/', payload)
-      setHistory(prev => [data, ...prev])
-      setExpanded(data.id)
-      setSavedId(data.id)
-      setForm(BLANK)
+      const { id, ...rest } = form
+      const payload = { ...rest, research_questions: form.research_questions.filter(q => q.trim()) }
+      if (id) {
+        const { data } = await api.put(`teach-stem/project-topics/${id}/`, payload)
+        setHistory(prev => prev.map(e => e.id === data.id ? data : e))
+        setExpanded(data.id)
+      } else {
+        const { data } = await api.post('teach-stem/project-topics/', payload)
+        setHistory(prev => [data, ...prev])
+        setExpanded(data.id)
+        setForm(f => ({ ...f, id: data.id }))
+      }
       showMsg('Draft saved.')
     } catch { setError('Something went wrong. Please try again.') }
     finally { setSaving(false) }
@@ -87,11 +92,14 @@ export default function ProjectTopics() {
     if (!validate(true)) return
     setSubmitting(true)
     try {
+      const { id, ...rest } = form
+      const payload = { ...rest, research_questions: form.research_questions.filter(q => q.trim()) }
       // Save first, then submit
-      const payload = { ...form, research_questions: form.research_questions.filter(q => q.trim()) }
-      const { data: created } = await api.post('teach-stem/project-topics/', payload)
-      const { data: submitted } = await api.post(`teach-stem/project-topics/${created.id}/submit/`)
-      setHistory(prev => [submitted, ...prev])
+      const targetId = id
+        ? (await api.put(`teach-stem/project-topics/${id}/`, payload)).data.id
+        : (await api.post('teach-stem/project-topics/', payload)).data.id
+      const { data: submitted } = await api.post(`teach-stem/project-topics/${targetId}/submit/`)
+      setHistory(prev => id ? prev.map(e => e.id === submitted.id ? submitted : e) : [submitted, ...prev])
       setExpanded(submitted.id)
       setForm(BLANK)
       showMsg('Submitted for review.')
@@ -110,6 +118,27 @@ export default function ProjectTopics() {
       const msg = err?.response?.data?.error
       setError(msg || 'Something went wrong.')
     }
+  }
+
+  const editEntry = (entry) => {
+    setForm({
+      id: entry.id,
+      overview: entry.overview || '',
+      classroom_name: entry.classroom_name || '',
+      grade_level: entry.grade_level || '',
+      num_students: entry.num_students || '',
+      standards: entry.standards || '',
+      background_concepts: entry.background_concepts || '',
+      research_questions: entry.research_questions?.length ? entry.research_questions : ['', '', ''],
+      materials: entry.materials || '',
+    })
+    setError(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const newPlan = () => {
+    setForm(BLANK)
+    setError(null)
   }
 
   const showMsg = (msg) => {
@@ -133,10 +162,23 @@ export default function ProjectTopics() {
 
         {/* Form */}
         <div className="card" style={{ borderTop: '4px solid var(--teal)', marginBottom: '2rem' }}>
-          <h3 style={{ color: 'var(--teal-dark)', marginBottom: '0.25rem' }}>New Project Plan</h3>
-          <p className="text-muted text-sm" style={{ marginBottom: '1.5rem' }}>
-            Complete all sections, then save as a draft or submit directly for admin review.
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+            <div>
+              <h3 style={{ color: 'var(--teal-dark)', marginBottom: '0.25rem' }}>
+                {form.id ? 'Editing Plan' : 'New Project Plan'}
+              </h3>
+              <p className="text-muted text-sm" style={{ marginBottom: '1.5rem' }}>
+                {form.id
+                  ? "Editing a plan pulls it back to a draft — submit again when you're ready for admin to see the changes."
+                  : 'Complete all sections, then save as a draft or submit directly for admin review.'}
+              </p>
+            </div>
+            {form.id && (
+              <button type="button" className="btn btn--outline btn--sm" onClick={newPlan}>
+                + New Plan
+              </button>
+            )}
+          </div>
 
           {saveMsg && (
             <div style={{ background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#2e7d32', fontWeight: 700 }}>
@@ -324,17 +366,25 @@ export default function ProjectTopics() {
                         </div>
                       )}
 
-                      {/* Submit draft for review */}
-                      {entry.status === 'draft' && (
+                      {/* Edit / submit actions */}
+                      <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem' }}>
                         <button
                           type="button"
-                          className="btn btn--teal btn--sm"
-                          style={{ marginTop: '1rem' }}
-                          onClick={() => submitExisting(entry.id)}
+                          className="btn btn--outline btn--sm"
+                          onClick={() => editEntry(entry)}
                         >
-                          Submit for Review
+                          Edit
                         </button>
-                      )}
+                        {entry.status === 'draft' && (
+                          <button
+                            type="button"
+                            className="btn btn--teal btn--sm"
+                            onClick={() => submitExisting(entry.id)}
+                          >
+                            Submit for Review
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

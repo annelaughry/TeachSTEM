@@ -32,6 +32,11 @@ export default function AdminDashboard() {
   const [toggling, setToggling]           = useState({})
   const teacherSearchTimeout              = useRef(null)
 
+  // Teach STEM profile viewer
+  const [expandedProfile, setExpandedProfile] = useState(null)   // teacher id currently expanded
+  const [profiles, setProfiles]               = useState({})     // { teacherId: profileData }
+  const [profileLoading, setProfileLoading]   = useState({})
+
   // Survey results state
   const [surveyTab, setSurveyTab]           = useState('tstem')
   const [tstemResults, setTstemResults]     = useState(null)
@@ -98,6 +103,24 @@ export default function AdminDashboard() {
       setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, teach_stem_approved: data.teach_stem_approved } : t))
     } finally {
       setToggling(t => ({ ...t, [teacher.id]: false }))
+    }
+  }
+
+  const toggleProfile = async (teacherId) => {
+    if (expandedProfile === teacherId) {
+      setExpandedProfile(null)
+      return
+    }
+    setExpandedProfile(teacherId)
+    if (profiles[teacherId]) return
+    setProfileLoading(p => ({ ...p, [teacherId]: true }))
+    try {
+      const { data } = await api.get(`admin/teachers/${teacherId}/teach-stem-profile/`)
+      setProfiles(prev => ({ ...prev, [teacherId]: data }))
+    } catch {
+      setProfiles(prev => ({ ...prev, [teacherId]: { error: true } }))
+    } finally {
+      setProfileLoading(p => ({ ...p, [teacherId]: false }))
     }
   }
 
@@ -229,26 +252,63 @@ export default function AdminDashboard() {
             <div className="empty"><p style={{ fontStyle: 'italic' }}>No teachers found.</p></div>
           )}
           {teachers.map(t => (
-            <div key={t.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t.name}</div>
-                <div className="text-muted text-sm">@{t.username}{t.email ? ` · ${t.email}` : ''}</div>
+            <div key={t.id} className="card" style={{ marginBottom: '0.5rem', padding: '0.85rem 1.1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t.name}</div>
+                  <div className="text-muted text-sm">@{t.username}{t.email ? ` · ${t.email}` : ''}</div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                  {t.teach_stem_approved && (
+                    <button
+                      onClick={() => toggleProfile(t.id)}
+                      className="btn btn--outline btn--sm"
+                    >
+                      {expandedProfile === t.id ? 'Hide Profile' : 'View Profile'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => toggleTeachStem(t)}
+                    disabled={toggling[t.id]}
+                    className="btn btn--sm"
+                    style={{
+                      flexShrink: 0,
+                      background: t.teach_stem_approved ? 'var(--teal)' : '#f5f5f5',
+                      border: `1px solid ${t.teach_stem_approved ? 'var(--teal-dark)' : 'var(--border)'}`,
+                      color: t.teach_stem_approved ? '#fff' : 'var(--text-muted)',
+                      fontWeight: 700,
+                      minWidth: 110,
+                    }}
+                  >
+                    {toggling[t.id] ? '…' : t.teach_stem_approved ? 'Teach STEM' : 'Not Teach STEM'}
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => toggleTeachStem(t)}
-                disabled={toggling[t.id]}
-                className="btn btn--sm"
-                style={{
-                  flexShrink: 0,
-                  background: t.teach_stem_approved ? 'var(--teal)' : '#f5f5f5',
-                  border: `1px solid ${t.teach_stem_approved ? 'var(--teal-dark)' : 'var(--border)'}`,
-                  color: t.teach_stem_approved ? '#fff' : 'var(--text-muted)',
-                  fontWeight: 700,
-                  minWidth: 110,
-                }}
-              >
-                {toggling[t.id] ? '…' : t.teach_stem_approved ? 'Teach STEM' : 'Not Teach STEM'}
-              </button>
+
+              {expandedProfile === t.id && (
+                <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border)' }}>
+                  {profileLoading[t.id] && <p className="text-muted text-sm">Loading profile…</p>}
+                  {!profileLoading[t.id] && profiles[t.id]?.error && (
+                    <p className="text-muted text-sm" style={{ fontStyle: 'italic' }}>Couldn't load this profile.</p>
+                  )}
+                  {!profileLoading[t.id] && profiles[t.id] && !profiles[t.id].error && (
+                    profiles[t.id].has_profile ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.6rem 1rem' }}>
+                        <ProfileField label="Name" value={profiles[t.id].name} />
+                        <ProfileField label="School" value={profiles[t.id].school} />
+                        <ProfileField label="Subject Taught" value={profiles[t.id].subject_taught} />
+                        <ProfileField label="Number of Students" value={profiles[t.id].num_students} />
+                        <ProfileField label="Years Teaching" value={profiles[t.id].years_teaching} />
+                        <ProfileField label="Email" value={profiles[t.id].email} />
+                      </div>
+                    ) : (
+                      <p className="text-muted text-sm" style={{ fontStyle: 'italic' }}>
+                        This teacher hasn't filled out their Teach STEM profile yet.
+                      </p>
+                    )
+                  )}
+                </div>
+              )}
             </div>
           ))}
           {!teacherQuery && teachers.length === 0 && (
@@ -758,6 +818,17 @@ export default function AdminDashboard() {
         </section>
 
       </div>
+    </div>
+  )
+}
+
+function ProfileField({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontWeight: 700, fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.15rem' }}>
+        {label}
+      </div>
+      <div style={{ fontSize: '0.9rem', color: '#333' }}>{value || value === 0 ? value : '—'}</div>
     </div>
   )
 }
