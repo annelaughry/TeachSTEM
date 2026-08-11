@@ -20,7 +20,7 @@ import ActivityBuilder from './pages/ActivityBuilder'
 import StudentActivity from './pages/StudentActivity'
 import TeacherResponses from './pages/TeacherResponses'
 import TeachSTEMDashboard from './pages/TeachSTEMDashboard'
-import LessonFeedbackSurvey from './pages/LessonFeedbackSurvey'
+import ProjectReflectionSurvey from './pages/ProjectReflectionSurvey'
 import TeachSTEMProfilePage from './pages/TeachSTEMProfilePage'
 import ProjectTopics from './pages/ProjectTopics'
 import ProjectStarterBuilder from './pages/ProjectStarterBuilder'
@@ -29,6 +29,9 @@ import TeacherSurvey from './pages/TeacherSurvey'
 import ThreeTwoOneList from './pages/ThreeTwoOneList'
 import ThreeTwoOneResponses from './pages/ThreeTwoOneResponses'
 import StudentThreeTwoOne from './pages/StudentThreeTwoOne'
+import StudentReflectionList from './pages/StudentReflectionList'
+import StudentReflectionResponses from './pages/StudentReflectionResponses'
+import StudentReflectionForm from './pages/StudentReflectionForm'
 
 function RequireAuth({ children, role }) {
   const { user, loading, isTeacher, isAdmin, isTeachSTEM } = useAuth()
@@ -65,12 +68,14 @@ function AppRoutes() {
         <Route path="/teacher/module/:id" element={<RequireAuth role="teacher"><ModuleDetail /></RequireAuth>} />
         <Route path="/teach-stem" element={<RequireAuth role="teach_stem"><TeachSTEMDashboard /></RequireAuth>} />
         <Route path="/teach-stem/profile" element={<RequireAuth role="teach_stem"><TeachSTEMProfilePage /></RequireAuth>} />
-        <Route path="/teach-stem/lesson-feedback" element={<RequireAuth role="teach_stem"><LessonFeedbackSurvey /></RequireAuth>} />
+        <Route path="/teach-stem/project-reflection" element={<RequireAuth role="teach_stem"><ProjectReflectionSurvey /></RequireAuth>} />
         <Route path="/teach-stem/project-topics" element={<RequireAuth role="teach_stem"><ProjectTopics /></RequireAuth>} />
         <Route path="/teach-stem/project-starter" element={<RequireAuth role="teach_stem"><ProjectStarterBuilder /></RequireAuth>} />
         <Route path="/teach-stem/tstem-survey" element={<RequireAuth role="teach_stem"><TStemSurvey /></RequireAuth>} />
         <Route path="/teach-stem/321" element={<RequireAuth role="teach_stem"><ThreeTwoOneList /></RequireAuth>} />
         <Route path="/teach-stem/321/:id" element={<RequireAuth role="teach_stem"><ThreeTwoOneResponses /></RequireAuth>} />
+        <Route path="/teach-stem/student-reflections" element={<RequireAuth role="teach_stem"><StudentReflectionList /></RequireAuth>} />
+        <Route path="/teach-stem/student-reflections/:id" element={<RequireAuth role="teach_stem"><StudentReflectionResponses /></RequireAuth>} />
         <Route path="/teacher/survey" element={<RequireAuth role="teacher"><TeacherSurvey /></RequireAuth>} />
         <Route path="/teacher/activity/create" element={<RequireAuth role="teach_stem"><ActivityBuilder /></RequireAuth>} />
         <Route path="/teacher/activity/:id/edit" element={<RequireAuth role="teach_stem"><ActivityBuilder /></RequireAuth>} />
@@ -79,6 +84,7 @@ function AppRoutes() {
         {/* Student */}
         <Route path="/student" element={<RequireAuth role="student"><StudentDashboard /></RequireAuth>} />
         <Route path="/student/321/:id" element={<RequireAuth><StudentThreeTwoOne /></RequireAuth>} />
+        <Route path="/student/reflection/:id" element={<RequireAuth><StudentReflectionForm /></RequireAuth>} />
         <Route path="/module/:id" element={<RequireAuth><ModuleView /></RequireAuth>} />
         <Route path="/activity/:id/work" element={<RequireAuth><StudentActivity /></RequireAuth>} />
         <Route path="/join" element={<RequireAuth><JoinClassroom /></RequireAuth>} />

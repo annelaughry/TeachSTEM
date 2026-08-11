@@ -165,11 +165,11 @@ export default function TeachSTEMDashboard() {
           />
         </div>
 
-        {/* Formative Assessment */}
+        {/* Student Feedback */}
         <div style={{ marginBottom: '1.25rem' }}>
-          <h2 style={{ color: 'var(--teal-dark)', marginBottom: '0.25rem' }}>Formative Assessment</h2>
+          <h2 style={{ color: 'var(--teal-dark)', marginBottom: '0.25rem' }}>Student Feedback</h2>
           <p className="text-muted" style={{ marginBottom: 0 }}>
-            Quick assessments to check for student understanding after activities.
+            Quick check-ins and reflections to hear from students after activities and projects.
           </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
@@ -178,6 +178,12 @@ export default function TeachSTEMDashboard() {
             title="3-2-1 Exit Tickets"
             description="Assign a 3-2-1 reflection after any activity — three things learned, two questions, one most interesting thing."
             color="var(--teal)"
+          />
+          <DashCard
+            to="/teach-stem/student-reflections"
+            title="STEM Project Reflection"
+            description="Assign a full reflection survey after a STEM project — enjoyment, challenge level, skills gained, and open-ended reflection."
+            color="var(--teal-dark)"
           />
         </div>
 
@@ -250,9 +256,9 @@ export default function TeachSTEMDashboard() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
           <DashCard
-            to="/teach-stem/lesson-feedback"
-            title="Lesson Feedback Survey"
-            description="Report on a lesson you completed — what engaged students, what you adapted, and where students struggled."
+            to="/teach-stem/project-reflection"
+            title="Teacher STEM Project Reflection"
+            description="Reflect on a STEM project you completed — success and engagement ratings, evidence of learning, student work, and your plans going forward."
             color="var(--teal)"
           />
         </div>

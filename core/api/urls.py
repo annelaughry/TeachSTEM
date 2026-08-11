@@ -58,7 +58,7 @@ urlpatterns = [
 
     # Teach STEM
     path('teach-stem/profile/', views.api_teach_stem_profile, name='api_teach_stem_profile'),
-    path('teach-stem/lesson-feedback/', views.api_lesson_feedback, name='api_lesson_feedback'),
+    path('teach-stem/project-reflections/', views.api_project_reflections, name='api_project_reflections'),
     path('teach-stem/tasks/', views.api_teach_stem_tasks, name='api_teach_stem_tasks'),
     path('teach-stem/tasks/<int:pk>/', views.api_teach_stem_task_detail, name='api_teach_stem_task_detail'),
     path('teach-stem/tasks/<int:pk>/complete/', views.api_teach_stem_task_complete, name='api_teach_stem_task_complete'),
@@ -88,4 +88,9 @@ urlpatterns = [
     path('321/assignments/<int:pk>/responses/', views.api_321_responses, name='api_321_responses'),
     path('321/student/', views.api_321_student_list, name='api_321_student_list'),
     path('321/student/<int:pk>/respond/', views.api_321_student_respond, name='api_321_student_respond'),
+    path('student-reflections/assignments/', views.api_student_reflection_assignments, name='api_student_reflection_assignments'),
+    path('student-reflections/assignments/<int:pk>/', views.api_student_reflection_assignment_detail, name='api_student_reflection_assignment_detail'),
+    path('student-reflections/assignments/<int:pk>/responses/', views.api_student_reflection_responses, name='api_student_reflection_responses'),
+    path('student-reflections/student/', views.api_student_reflection_student_list, name='api_student_reflection_student_list'),
+    path('student-reflections/student/<int:pk>/respond/', views.api_student_reflection_respond, name='api_student_reflection_respond'),
 ]

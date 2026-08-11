@@ -199,22 +199,61 @@ class TeacherFeedback(models.Model):
         return f"Feedback on {self.response}"
 
 
-class LessonFeedback(models.Model):
-    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lesson_feedback')
-    activity_name = models.CharField(max_length=255, blank=True)
-    student_count = models.PositiveIntegerField()
-    grade_level_name = models.CharField(max_length=100, blank=True)
-    classroom_name = models.CharField(max_length=100, blank=True)
-    most_engaging = models.TextField(blank=True)
-    adaptations = models.TextField(blank=True)
-    struggled_section = models.TextField(blank=True)
+class TeacherProjectReflection(models.Model):
+    SUCCESS_CHOICES = [
+        ('very_successful', 'Very Successful'),
+        ('successful', 'Successful'),
+        ('somewhat_successful', 'Somewhat Successful'),
+        ('not_very_successful', 'Not Very Successful'),
+        ('unsuccessful', 'Unsuccessful'),
+    ]
+    ENGAGEMENT_CHOICES = [
+        ('highly_engaged', 'Highly engaged throughout'),
+        ('mostly_engaged', 'Mostly engaged'),
+        ('mixed', 'Mixed engagement'),
+        ('mostly_disengaged', 'Mostly disengaged'),
+        ('not_engaged', 'Not engaged'),
+    ]
+    FUTURE_PLAN_CHOICES = [
+        ('teach_again_no_changes', 'I plan to teach it again without major changes.'),
+        ('revise_and_teach_again', 'I plan to revise and teach it again.'),
+        ('expand_project', 'I plan to expand the project.'),
+        ('collaborate', 'I plan to collaborate with another teacher.'),
+        ('not_use_again', 'I do not plan to use this project again.'),
+    ]
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_reflections')
+    project_name = models.CharField(max_length=255, help_text='Which STEM project did you implement?')
+    success_rating = models.CharField(max_length=30, choices=SUCCESS_CHOICES, blank=True)
+    engagement = models.CharField(max_length=30, choices=ENGAGEMENT_CHOICES, blank=True)
+    evidence_of_learning = models.TextField(blank=True, help_text='Evidence that students met the learning goals.')
+    improvements = models.TextField(blank=True, help_text='What would you change or improve next time?')
+    future_plans = models.JSONField(default=list, blank=True)
+    additional_comments = models.TextField(blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-submitted_at']
 
     def __str__(self):
-        return f"{self.teacher.username} — {self.activity_name or 'unknown'} ({self.submitted_at.date()})"
+        return f"{self.teacher.username} — {self.project_name} ({self.submitted_at.date()})"
+
+
+class ReflectionFile(models.Model):
+    KIND_CHOICES = [
+        ('student_work', 'Student Work Example'),
+        ('supporting_material', 'Supporting Material'),
+    ]
+    reflection = models.ForeignKey(TeacherProjectReflection, on_delete=models.CASCADE, related_name='files')
+    kind = models.CharField(max_length=25, choices=KIND_CHOICES)
+    file = models.FileField(upload_to='project_reflections/')
+    label = models.CharField(max_length=255, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['uploaded_at']
+
+    def __str__(self):
+        return self.label or self.file.name
 
 
 class ClassroomSectionPoints(models.Model):
@@ -426,6 +465,64 @@ class ThreeTwoOneResponse(models.Model):
     question_2 = models.TextField(blank=True)
     most_interesting = models.TextField(blank=True)
     response_video = models.FileField(upload_to='321/videos/', null=True, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('assignment', 'student')
+        ordering = ['submitted_at']
+
+    def __str__(self):
+        return f"{self.student.username} — {self.assignment}"
+
+
+class StudentReflectionAssignment(models.Model):
+    """A 'Student STEM Reflection' survey a Teach STEM teacher assigns to one or more classrooms
+    after a project — mirrors ThreeTwoOneAssignment but with a richer, fixed-format survey."""
+    title = models.CharField(max_length=200, blank=True)
+    activity = models.ForeignKey('Activity', null=True, blank=True, on_delete=models.SET_NULL, related_name='student_reflections')
+    classrooms = models.ManyToManyField('Classroom', blank=True, related_name='student_reflections')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='student_reflection_assignments')
+    is_open = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title or f"STEM Reflection by {self.created_by.username}"
+
+
+class StudentReflectionResponse(models.Model):
+    ENJOYMENT_CHOICES = [
+        ('loved_it', 'Loved it'),
+        ('liked_it', 'Liked it'),
+        ('it_was_okay', 'It was okay'),
+        ('didnt_like_it_much', "Didn't like it much"),
+        ('didnt_enjoy_it', "Didn't enjoy it"),
+    ]
+    CHALLENGE_CHOICES = [
+        ('much_too_easy', 'Much too easy'),
+        ('a_little_too_easy', 'A little too easy'),
+        ('just_right', 'Just right'),
+        ('a_little_too_difficult', 'A little too difficult'),
+        ('much_too_difficult', 'Much too difficult'),
+    ]
+    RATING_CHOICES = [(i, str(i)) for i in range(1, 6)]
+
+    assignment = models.ForeignKey(StudentReflectionAssignment, on_delete=models.CASCADE, related_name='responses')
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='student_reflection_responses')
+    enjoyment = models.CharField(max_length=25, choices=ENJOYMENT_CHOICES, blank=True)
+    challenge_level = models.CharField(max_length=25, choices=CHALLENGE_CHOICES, blank=True)
+    enjoyed_parts = models.JSONField(default=list, blank=True, help_text='Which parts of the project did you enjoy most?')
+    learned_something_rating = models.PositiveSmallIntegerField(choices=RATING_CHOICES, null=True, blank=True)
+    skills_improved = models.JSONField(default=list, blank=True, help_text='This project helped me improve my...')
+    one_thing_learned = models.TextField(blank=True)
+    most_enjoyable_part = models.TextField(blank=True)
+    biggest_challenge = models.TextField(blank=True)
+    change_one_thing = models.TextField(blank=True)
+    want_more_stem_rating = models.PositiveSmallIntegerField(choices=RATING_CHOICES, null=True, blank=True)
+    real_world_connection_rating = models.PositiveSmallIntegerField(choices=RATING_CHOICES, null=True, blank=True)
+    additional_comments = models.TextField(blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

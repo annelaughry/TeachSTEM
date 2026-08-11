@@ -3,19 +3,48 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import api from '../api'
 
+function FeedbackCard({ a, to, fallbackTitle }) {
+  return (
+    <div className="card" style={{ marginBottom: '0.65rem', borderLeft: `4px solid ${a.student_responded ? '#ccc' : 'var(--teal)'}`, opacity: a.student_responded ? 0.7 : 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: '0.97rem', marginBottom: '0.15rem' }}>
+            {a.title || (a.activity_title ? `After: ${a.activity_title}` : fallbackTitle)}
+          </div>
+          {a.classroom_names?.length > 0 && (
+            <p className="text-muted text-sm" style={{ marginBottom: 0 }}>{a.classroom_names.join(', ')}</p>
+          )}
+        </div>
+        {a.student_responded ? (
+          <Link to={to} className="btn btn--outline btn--sm" style={{ flexShrink: 0 }}>
+            View Response
+          </Link>
+        ) : (
+          <Link to={to} className="btn btn--primary btn--sm" style={{ flexShrink: 0 }}>
+            Complete
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function StudentDashboard() {
   const { user } = useAuth()
   const [classrooms, setClassrooms]       = useState([])
   const [assignments321, setAssignments321] = useState([])
+  const [reflectionAssignments, setReflectionAssignments] = useState([])
   const [loading, setLoading]             = useState(true)
 
   useEffect(() => {
     Promise.all([
       api.get('student/classrooms/'),
       api.get('321/student/'),
-    ]).then(([c, a]) => {
+      api.get('student-reflections/student/'),
+    ]).then(([c, a, r]) => {
       setClassrooms(c.data)
       setAssignments321(a.data)
+      setReflectionAssignments(r.data)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
@@ -35,32 +64,15 @@ export default function StudentDashboard() {
 
       <div className="container">
 
-        {/* 3-2-1 Exit Tickets */}
-        {assignments321.length > 0 && (
+        {/* Student Feedback */}
+        {(assignments321.length > 0 || reflectionAssignments.length > 0) && (
           <section style={{ marginBottom: '2rem', marginTop: '1rem' }}>
-            <div className="section-title" style={{ color: 'var(--teal-dark)', marginBottom: '0.75rem' }}>Exit Tickets</div>
+            <div className="section-title" style={{ color: 'var(--teal-dark)', marginBottom: '0.75rem' }}>Student Feedback</div>
             {assignments321.map(a => (
-              <div key={a.id} className="card" style={{ marginBottom: '0.65rem', borderLeft: `4px solid ${a.student_responded ? '#ccc' : 'var(--teal)'}`, opacity: a.student_responded ? 0.7 : 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: '0.97rem', marginBottom: '0.15rem' }}>
-                      {a.title || (a.activity_title ? `After: ${a.activity_title}` : '3-2-1 Exit Ticket')}
-                    </div>
-                    {a.classroom_names?.length > 0 && (
-                      <p className="text-muted text-sm" style={{ marginBottom: 0 }}>{a.classroom_names.join(', ')}</p>
-                    )}
-                  </div>
-                  {a.student_responded ? (
-                    <Link to={`/student/321/${a.id}`} className="btn btn--outline btn--sm" style={{ flexShrink: 0 }}>
-                      View Response
-                    </Link>
-                  ) : (
-                    <Link to={`/student/321/${a.id}`} className="btn btn--primary btn--sm" style={{ flexShrink: 0 }}>
-                      Complete
-                    </Link>
-                  )}
-                </div>
-              </div>
+              <FeedbackCard key={`321-${a.id}`} a={a} to={`/student/321/${a.id}`} fallbackTitle="3-2-1 Exit Ticket" />
+            ))}
+            {reflectionAssignments.map(a => (
+              <FeedbackCard key={`reflection-${a.id}`} a={a} to={`/student/reflection/${a.id}`} fallbackTitle="STEM Project Reflection" />
             ))}
           </section>
         )}

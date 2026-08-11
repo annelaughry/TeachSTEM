@@ -15,9 +15,11 @@ from core.models import (
     Activity, ActivitySection, ActivityPrompt, SectionLink,
     GradeLevel, Standard, Concept, Classroom, Module, ModuleActivity,
     TeacherProfile, StudentResponse, TeacherFeedback, ActivityFile,
-    ClassroomSectionPoints, StudentSectionScore, LessonFeedback, TeachSTEMProfile, TeachSTEMTask,
+    ClassroomSectionPoints, StudentSectionScore, TeacherProjectReflection, ReflectionFile,
+    TeachSTEMProfile, TeachSTEMTask,
     TeachSTEMTaskCompletion, ProjectTopicSubmission, ProjectStarter, TStemSurveyResponse, TeacherSurveyResponse,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
+    StudentReflectionAssignment, StudentReflectionResponse,
 )
 from core.views import _is_teacher, _save_sections_and_standards, _activity_completed_by
 from .serializers import (
@@ -25,9 +27,10 @@ from .serializers import (
     GradeLevelSerializer, StandardSerializer, ClassroomListSerializer,
     ClassroomDetailSerializer, ModuleSerializer, StudentResponseSerializer,
     TeacherStudentResponseSerializer, TeacherFeedbackSerializer,
-    LessonFeedbackSerializer, TeachSTEMProfileSerializer, TeachSTEMTaskSerializer,
+    TeacherProjectReflectionSerializer, TeachSTEMProfileSerializer, TeachSTEMTaskSerializer,
     ProjectTopicSubmissionSerializer, ProjectStarterSerializer, TStemSurveyResponseSerializer,
     ThreeTwoOneAssignmentSerializer, ThreeTwoOneResponseSerializer,
+    StudentReflectionAssignmentSerializer, StudentReflectionResponseSerializer,
     TeacherSurveyResponseSerializer,
 )
 
@@ -979,22 +982,42 @@ def _teach_stem_required(request):
 
 
 @api_view(['GET', 'POST'])
-def api_lesson_feedback(request):
+@parser_classes([MultiPartParser, FormParser, JSONParser])
+def api_project_reflections(request):
     if not _teach_stem_required(request):
         return Response({'error': 'Teach STEM access required.'}, status=403)
 
-    if request.method == 'POST':
-        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
-        serializer = LessonFeedbackSerializer(data=data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=400)
-        serializer.save(teacher=request.user)
-        return Response(serializer.data, status=201)
+    if request.method == 'GET':
+        submissions = TeacherProjectReflection.objects.filter(teacher=request.user).prefetch_related('files')
+        return Response(TeacherProjectReflectionSerializer(submissions, many=True).data)
 
-    submissions = LessonFeedback.objects.filter(teacher=request.user).select_related(
-        'activity', 'grade_level', 'classroom'
+    project_name = request.data.get('project_name', '').strip()
+    if not project_name:
+        return Response({'error': 'Please tell us which STEM project you implemented.'}, status=400)
+
+    future_plans_raw = request.data.get('future_plans', '[]')
+    try:
+        future_plans = json.loads(future_plans_raw) if isinstance(future_plans_raw, str) else list(future_plans_raw)
+    except Exception:
+        future_plans = []
+
+    reflection = TeacherProjectReflection.objects.create(
+        teacher=request.user,
+        project_name=project_name,
+        success_rating=request.data.get('success_rating', ''),
+        engagement=request.data.get('engagement', ''),
+        evidence_of_learning=request.data.get('evidence_of_learning', ''),
+        improvements=request.data.get('improvements', ''),
+        future_plans=future_plans,
+        additional_comments=request.data.get('additional_comments', ''),
     )
-    return Response(LessonFeedbackSerializer(submissions, many=True).data)
+
+    for f in request.FILES.getlist('student_work_files'):
+        ReflectionFile.objects.create(reflection=reflection, kind='student_work', file=f, label=f.name)
+    for f in request.FILES.getlist('supporting_material_files'):
+        ReflectionFile.objects.create(reflection=reflection, kind='supporting_material', file=f, label=f.name)
+
+    return Response(TeacherProjectReflectionSerializer(reflection).data, status=201)
 
 
 @api_view(['GET', 'POST'])
@@ -1531,3 +1554,159 @@ def api_321_student_respond(request, pk):
         )
 
     return Response(ThreeTwoOneResponseSerializer(resp, context={'request': request}).data, status=201)
+
+
+# --- Student STEM Reflection ---
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def api_student_reflection_assignments(request):
+    if request.method == 'GET':
+        if not (_teach_stem_required(request) or request.user.is_staff or request.user.is_superuser):
+            return Response({'error': 'Access denied.'}, status=403)
+        if request.user.is_staff or request.user.is_superuser:
+            qs = StudentReflectionAssignment.objects.prefetch_related('classrooms', 'responses')
+        else:
+            qs = StudentReflectionAssignment.objects.filter(
+                created_by=request.user
+            ).prefetch_related('classrooms', 'responses')
+        return Response(StudentReflectionAssignmentSerializer(qs, many=True, context={'request': request}).data)
+
+    if not _teach_stem_required(request):
+        return Response({'error': 'Teach STEM access required.'}, status=403)
+
+    classroom_ids = request.data.get('classrooms', [])
+    activity_id = request.data.get('activity')
+    title = request.data.get('title', '')
+
+    assignment = StudentReflectionAssignment.objects.create(
+        title=title,
+        created_by=request.user,
+        activity_id=activity_id if activity_id else None,
+    )
+    if classroom_ids:
+        assignment.classrooms.set(Classroom.objects.filter(id__in=classroom_ids))
+
+    return Response(
+        StudentReflectionAssignmentSerializer(assignment, context={'request': request}).data,
+        status=201,
+    )
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def api_student_reflection_assignment_detail(request, pk):
+    if not (_teach_stem_required(request) or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Access denied.'}, status=403)
+    try:
+        assignment = StudentReflectionAssignment.objects.get(pk=pk)
+    except StudentReflectionAssignment.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+    if not (request.user.is_staff or request.user.is_superuser) and assignment.created_by != request.user:
+        return Response({'error': 'Permission denied.'}, status=403)
+
+    if request.method == 'DELETE':
+        assignment.delete()
+        return Response(status=204)
+
+    if 'is_open' in request.data:
+        assignment.is_open = request.data['is_open']
+    if 'title' in request.data:
+        assignment.title = request.data['title']
+    if 'classrooms' in request.data:
+        assignment.classrooms.set(Classroom.objects.filter(id__in=request.data['classrooms']))
+    assignment.save()
+    return Response(StudentReflectionAssignmentSerializer(assignment, context={'request': request}).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_student_reflection_responses(request, pk):
+    if not (_teach_stem_required(request) or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Access denied.'}, status=403)
+    try:
+        assignment = StudentReflectionAssignment.objects.get(pk=pk)
+    except StudentReflectionAssignment.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+    if not (request.user.is_staff or request.user.is_superuser) and assignment.created_by != request.user:
+        return Response({'error': 'Permission denied.'}, status=403)
+
+    responses = assignment.responses.select_related('student').all()
+    return Response(StudentReflectionResponseSerializer(responses, many=True, context={'request': request}).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_student_reflection_student_list(request):
+    enrolled_classroom_ids = request.user.enrolled_classrooms.values_list('id', flat=True)
+    assignments = StudentReflectionAssignment.objects.filter(
+        classrooms__id__in=enrolled_classroom_ids,
+        is_open=True,
+    ).prefetch_related('classrooms', 'responses').distinct()
+    return Response(StudentReflectionAssignmentSerializer(assignments, many=True, context={'request': request}).data)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def api_student_reflection_respond(request, pk):
+    try:
+        assignment = StudentReflectionAssignment.objects.get(pk=pk)
+    except StudentReflectionAssignment.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+    if request.method == 'GET':
+        try:
+            resp = StudentReflectionResponse.objects.get(assignment=assignment, student=request.user)
+            return Response(StudentReflectionResponseSerializer(resp, context={'request': request}).data)
+        except StudentReflectionResponse.DoesNotExist:
+            return Response({})
+
+    if not assignment.is_open:
+        return Response({'error': 'This reflection is closed.'}, status=400)
+
+    if StudentReflectionResponse.objects.filter(assignment=assignment, student=request.user).exists():
+        return Response({'error': 'You have already submitted a response.'}, status=400)
+
+    d = request.data
+
+    def parse_list(val):
+        if isinstance(val, list):
+            return val
+        try:
+            return json.loads(val) if val else []
+        except Exception:
+            return []
+
+    required_text = ['one_thing_learned', 'most_enjoyable_part', 'biggest_challenge', 'change_one_thing']
+    for field in required_text:
+        if not str(d.get(field, '')).strip():
+            return Response({'error': f'{field} is required.'}, status=400)
+    required_choice = ['enjoyment', 'challenge_level']
+    for field in required_choice:
+        if not d.get(field):
+            return Response({'error': f'{field} is required.'}, status=400)
+    required_rating = ['learned_something_rating', 'want_more_stem_rating', 'real_world_connection_rating']
+    for field in required_rating:
+        if not d.get(field):
+            return Response({'error': f'{field} is required.'}, status=400)
+
+    resp = StudentReflectionResponse.objects.create(
+        assignment=assignment,
+        student=request.user,
+        enjoyment=d.get('enjoyment', ''),
+        challenge_level=d.get('challenge_level', ''),
+        enjoyed_parts=parse_list(d.get('enjoyed_parts')),
+        learned_something_rating=int(d['learned_something_rating']),
+        skills_improved=parse_list(d.get('skills_improved')),
+        one_thing_learned=d['one_thing_learned'].strip(),
+        most_enjoyable_part=d['most_enjoyable_part'].strip(),
+        biggest_challenge=d['biggest_challenge'].strip(),
+        change_one_thing=d['change_one_thing'].strip(),
+        want_more_stem_rating=int(d['want_more_stem_rating']),
+        real_world_connection_rating=int(d['real_world_connection_rating']),
+        additional_comments=d.get('additional_comments', '').strip() if isinstance(d.get('additional_comments'), str) else '',
+    )
+
+    return Response(StudentReflectionResponseSerializer(resp, context={'request': request}).data, status=201)
