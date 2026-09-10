@@ -25,6 +25,13 @@ export default function AdminDashboard() {
   const [savedStarterFb, setSavedStarterFb]   = useState({})
   const [expandedStarter, setExpandedStarter] = useState(null)
 
+  // Topic suggestion reviews
+  const [topicSubs, setTopicSubs]             = useState([])
+  const [topicFeedbacks, setTopicFeedbacks]   = useState({})
+  const [savingTopicFb, setSavingTopicFb]     = useState({})
+  const [savedTopicFb, setSavedTopicFb]       = useState({})
+  const [expandedTopic, setExpandedTopic]     = useState(null)
+
   // Teacher search state
   const [teacherQuery, setTeacherQuery]   = useState('')
   const [teachers, setTeachers]           = useState([])
@@ -58,15 +65,18 @@ export default function AdminDashboard() {
       api.get('teach-stem/tasks/'),
       api.get('admin/project-topics/'),
       api.get('admin/project-starters/'),
+      api.get('admin/topic-suggestions/'),
       api.get('admin/survey-results/tstem/'),
-    ]).then(([dash, t, ps, pst, tstem]) => {
+    ]).then(([dash, t, ps, pst, top, tstem]) => {
       setData(dash.data)
       setTasks(t.data)
       setProjectSubs(ps.data)
       setStarterSubs(pst.data)
+      setTopicSubs(top.data)
       setTstemResults(tstem.data)
       if (ps.data.length > 0) setExpandedSub(ps.data[0].id)
       if (pst.data.length > 0) setExpandedStarter(pst.data[0].id)
+      if (top.data.length > 0) setExpandedTopic(top.data[0].id)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -184,6 +194,16 @@ export default function AdminDashboard() {
       setSavedStarterFb(p => ({ ...p, [id]: true }))
       setTimeout(() => setSavedStarterFb(p => { const n = { ...p }; delete n[id]; return n }), 2500)
     } finally { setSavingStarterFb(p => ({ ...p, [id]: false })) }
+  }
+
+  const saveTopicFeedback = async (id) => {
+    setSavingTopicFb(p => ({ ...p, [id]: true }))
+    try {
+      const { data } = await api.post(`admin/topic-suggestions/${id}/feedback/`, { feedback: topicFeedbacks[id] || '' })
+      setTopicSubs(prev => prev.map(s => s.id === id ? data : s))
+      setSavedTopicFb(p => ({ ...p, [id]: true }))
+      setTimeout(() => setSavedTopicFb(p => { const n = { ...p }; delete n[id]; return n }), 2500)
+    } finally { setSavingTopicFb(p => ({ ...p, [id]: false })) }
   }
 
   const deleteTask = async (id, title) => {
@@ -524,6 +544,70 @@ export default function AdminDashboard() {
                         style={{ background: savedStarterFb[sub.id] ? '#2e7d32' : undefined }}
                       >
                         {savingStarterFb[sub.id] ? 'Saving...' : savedStarterFb[sub.id] ? 'Saved' : sub.status === 'reviewed' ? 'Update Feedback' : 'Submit Feedback'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </section>
+
+        {/* Topic Suggestion Reviews */}
+        <section style={{ marginBottom: '2.5rem' }}>
+          <div className="section-title">Topic Suggestions</div>
+          <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
+            Topics approved teachers submitted from their classroom dashboard for future lesson/project development.
+          </p>
+          {topicSubs.length === 0 ? (
+            <div className="empty" style={{ marginBottom: '1rem' }}>
+              <p style={{ fontStyle: 'italic' }}>No submissions yet.</p>
+            </div>
+          ) : (
+            topicSubs.map(sub => (
+              <div key={sub.id} className="card" style={{ marginBottom: '0.75rem', padding: 0, overflow: 'hidden', borderLeft: `4px solid ${sub.status === 'reviewed' ? '#2e7d32' : 'var(--teal)'}` }}>
+                <button
+                  type="button"
+                  onClick={() => setExpandedTopic(expandedTopic === sub.id ? null : sub.id)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1.25rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>
+                      {sub.topic}
+                    </div>
+                    <div className="text-muted text-sm" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.1rem' }}>
+                      <span>{sub.teacher_name}</span>
+                      <span style={{ fontWeight: 700, color: sub.status === 'reviewed' ? '#2e7d32' : 'var(--teal-dark)' }}>
+                        {sub.status === 'reviewed' ? 'Reviewed' : 'Awaiting Review'}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '1.1rem', flexShrink: 0 }}>
+                    {expandedTopic === sub.id ? '▾' : '▸'}
+                  </span>
+                </button>
+
+                {expandedTopic === sub.id && (
+                  <div style={{ padding: '0 1.25rem 1.25rem', borderTop: '1px solid var(--border)' }}>
+                    {sub.notes && <ReviewField label="Notes">{sub.notes}</ReviewField>}
+                    <div style={{ marginTop: '1.25rem' }}>
+                      <ReviewLabel>Feedback</ReviewLabel>
+                      <textarea
+                        className="form-input"
+                        rows={3}
+                        style={{ marginBottom: '0.5rem' }}
+                        value={topicFeedbacks[sub.id] ?? sub.admin_feedback ?? ''}
+                        onChange={e => setTopicFeedbacks(p => ({ ...p, [sub.id]: e.target.value }))}
+                        placeholder="Write feedback for this teacher..."
+                      />
+                      <button
+                        type="button"
+                        className="btn btn--teal btn--sm"
+                        onClick={() => saveTopicFeedback(sub.id)}
+                        disabled={savingTopicFb[sub.id]}
+                        style={{ background: savedTopicFb[sub.id] ? '#2e7d32' : undefined }}
+                      >
+                        {savingTopicFb[sub.id] ? 'Saving...' : savedTopicFb[sub.id] ? 'Saved' : sub.status === 'reviewed' ? 'Update Feedback' : 'Submit Feedback'}
                       </button>
                     </div>
                   </div>

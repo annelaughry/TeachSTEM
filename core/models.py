@@ -365,6 +365,30 @@ class ProjectStarter(models.Model):
         return f"{self.teacher.username} — {self.title or 'untitled'} ({self.submitted_at.date()})"
 
 
+class TopicSuggestion(models.Model):
+    """A topic an approved teacher submits, asking for a lesson/project to be built around it."""
+    STATUS_CHOICES = [
+        ('submitted', 'Submitted'),
+        ('reviewed', 'Reviewed'),
+    ]
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='topic_suggestions')
+    topic = models.CharField(max_length=200)
+    notes = models.TextField(blank=True, help_text='Grade level, standards, or why this topic would help your classroom.')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='submitted')
+    admin_feedback = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name='reviewed_topic_suggestions'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f"{self.teacher.username} — {self.topic} ({self.submitted_at.date()})"
+
+
 class TStemSurveyResponse(models.Model):
     teacher = models.OneToOneField(User, on_delete=models.CASCADE, related_name='tstem_survey')
     responses = models.JSONField(default=dict, blank=True)

@@ -17,7 +17,7 @@ from core.models import (
     TeacherProfile, StudentResponse, TeacherFeedback, ActivityFile,
     ClassroomSectionPoints, StudentSectionScore, TeacherProjectReflection, ReflectionFile,
     TeachSTEMProfile, TeachSTEMTask,
-    TeachSTEMTaskCompletion, ProjectTopicSubmission, ProjectStarter, TStemSurveyResponse, TeacherSurveyResponse,
+    TeachSTEMTaskCompletion, ProjectTopicSubmission, ProjectStarter, TopicSuggestion, TStemSurveyResponse, TeacherSurveyResponse,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
     StudentReflectionAssignment, StudentReflectionResponse,
 )
@@ -28,7 +28,7 @@ from .serializers import (
     ClassroomDetailSerializer, ModuleSerializer, StudentResponseSerializer,
     TeacherStudentResponseSerializer, TeacherFeedbackSerializer,
     TeacherProjectReflectionSerializer, TeachSTEMProfileSerializer, TeachSTEMTaskSerializer,
-    ProjectTopicSubmissionSerializer, ProjectStarterSerializer, TStemSurveyResponseSerializer,
+    ProjectTopicSubmissionSerializer, ProjectStarterSerializer, TopicSuggestionSerializer, TStemSurveyResponseSerializer,
     ThreeTwoOneAssignmentSerializer, ThreeTwoOneResponseSerializer,
     StudentReflectionAssignmentSerializer, StudentReflectionResponseSerializer,
     TeacherSurveyResponseSerializer,
@@ -1243,6 +1243,63 @@ def api_admin_project_starter_feedback(request, pk):
     starter.status = 'reviewed'
     starter.save()
     return Response(ProjectStarterSerializer(starter).data)
+
+
+@api_view(['GET', 'POST'])
+def api_topic_suggestions(request):
+    """Approved teachers submit a topic idea from the classroom dashboard, for admins to
+    consider developing into a future lesson or project."""
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+
+    if request.method == 'GET':
+        suggestions = TopicSuggestion.objects.filter(teacher=request.user)
+        return Response(TopicSuggestionSerializer(suggestions, many=True).data)
+
+    serializer = TopicSuggestionSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save(teacher=request.user)
+    return Response(serializer.data, status=201)
+
+
+@api_view(['DELETE'])
+def api_topic_suggestion_delete(request, pk):
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+    try:
+        sub = TopicSuggestion.objects.get(pk=pk, teacher=request.user)
+    except TopicSuggestion.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    if sub.status == 'reviewed':
+        return Response({'error': 'Reviewed suggestions cannot be deleted.'}, status=400)
+    sub.delete()
+    return Response(status=204)
+
+
+@api_view(['GET'])
+def api_admin_topic_suggestions(request):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    subs = TopicSuggestion.objects.select_related('teacher', 'reviewed_by')
+    return Response(TopicSuggestionSerializer(subs, many=True).data)
+
+
+@api_view(['POST'])
+def api_admin_topic_suggestion_feedback(request, pk):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    try:
+        sub = TopicSuggestion.objects.get(pk=pk)
+    except TopicSuggestion.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    from django.utils import timezone
+    sub.admin_feedback = request.data.get('feedback', '').strip()
+    sub.reviewed_by = request.user
+    sub.reviewed_at = timezone.now()
+    sub.status = 'reviewed'
+    sub.save()
+    return Response(TopicSuggestionSerializer(sub).data)
 
 
 @api_view(['GET'])

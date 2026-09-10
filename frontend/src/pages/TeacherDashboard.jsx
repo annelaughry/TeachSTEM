@@ -10,6 +10,11 @@ const STATUS_BADGE = {
   rejected: { cls: 'badge--red',    label: 'Rejected' },
 }
 
+const TOPIC_STATUS_BADGE = {
+  submitted: { cls: 'badge--orange', label: 'Awaiting Review' },
+  reviewed:  { cls: 'badge--green',  label: 'Reviewed' },
+}
+
 export default function TeacherDashboard() {
   const { user, isTeachSTEM } = useAuth()
   const navigate = useNavigate()
@@ -20,17 +25,49 @@ export default function TeacherDashboard() {
   const [newClassroom, setNewClassroom] = useState('')
   const [creating, setCreating] = useState(false)
 
+  const [topicSuggestions, setTopicSuggestions] = useState([])
+  const [topicForm, setTopicForm] = useState({ topic: '', notes: '' })
+  const [submittingTopic, setSubmittingTopic] = useState(false)
+  const [topicError, setTopicError] = useState(null)
+
   useEffect(() => {
     Promise.all([
       api.get('classrooms/'),
       api.get('activities/mine/'),
       api.get('modules/'),
-    ]).then(([c, a, m]) => {
+      api.get('topic-suggestions/'),
+    ]).then(([c, a, m, ts]) => {
       setClassrooms(c.data)
       setActivities(a.data)
       setModules(m.data)
+      setTopicSuggestions(ts.data)
     }).finally(() => setLoading(false))
   }, [])
+
+  const submitTopic = async e => {
+    e.preventDefault()
+    setTopicError(null)
+    if (!topicForm.topic.trim()) { setTopicError('Please enter a topic.'); return }
+    setSubmittingTopic(true)
+    try {
+      const { data } = await api.post('topic-suggestions/', {
+        topic: topicForm.topic.trim(),
+        notes: topicForm.notes.trim(),
+      })
+      setTopicSuggestions(prev => [data, ...prev])
+      setTopicForm({ topic: '', notes: '' })
+    } catch {
+      setTopicError('Something went wrong. Please try again.')
+    } finally {
+      setSubmittingTopic(false)
+    }
+  }
+
+  const deleteTopic = async (id) => {
+    if (!window.confirm('Delete this topic suggestion?')) return
+    await api.delete(`topic-suggestions/${id}/`)
+    setTopicSuggestions(prev => prev.filter(t => t.id !== id))
+  }
 
   const createClassroom = async e => {
     e.preventDefault()
@@ -148,6 +185,63 @@ export default function TeacherDashboard() {
               <span style={{ color: 'var(--pink)', fontSize: '1.3rem' }}>›</span>
             </Link>
           ))}
+        </section>
+
+        {/* Topic Suggestions */}
+        <section style={{ marginBottom: '2.5rem' }}>
+          <div className="section-title">Suggest a Topic</div>
+          <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
+            Have an idea for a future lesson or project? Submit a topic and our team will consider it for development.
+          </p>
+
+          <form onSubmit={submitTopic} className="card" style={{ marginBottom: '1rem' }}>
+            <input
+              className="form-input"
+              placeholder="Topic (e.g. Renewable Energy, Water Cycle)…"
+              value={topicForm.topic}
+              onChange={e => setTopicForm(f => ({ ...f, topic: e.target.value }))}
+              style={{ marginBottom: '0.6rem' }}
+            />
+            <textarea
+              className="form-input"
+              rows={2}
+              placeholder="Optional notes — grade level, standards, or why this would help your classroom…"
+              value={topicForm.notes}
+              onChange={e => setTopicForm(f => ({ ...f, notes: e.target.value }))}
+              style={{ marginBottom: '0.6rem' }}
+            />
+            {topicError && <p style={{ color: 'var(--red, #c62828)', fontSize: '0.85rem', marginBottom: '0.6rem' }}>{topicError}</p>}
+            <button type="submit" className="btn btn--primary btn--sm" disabled={submittingTopic}>
+              {submittingTopic ? 'Submitting…' : 'Submit Topic'}
+            </button>
+          </form>
+
+          {topicSuggestions.length === 0 ? (
+            <div className="empty"><p>No topic suggestions submitted yet.</p></div>
+          ) : (
+            topicSuggestions.map(t => {
+              const s = TOPIC_STATUS_BADGE[t.status] || TOPIC_STATUS_BADGE.submitted
+              return (
+                <div key={t.id} className="card" style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ color: 'var(--text)' }}>{t.topic}</h3>
+                    {t.notes && <p className="text-muted text-sm" style={{ marginTop: '0.25rem' }}>{t.notes}</p>}
+                    {t.admin_feedback && (
+                      <p className="text-sm" style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', background: 'var(--bg-alt, #f5f5f5)', borderRadius: '6px' }}>
+                        <strong>Feedback:</strong> {t.admin_feedback}
+                      </p>
+                    )}
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
+                      <span className={`badge ${s.cls}`}>{s.label}</span>
+                    </div>
+                  </div>
+                  {t.status !== 'reviewed' && (
+                    <button onClick={() => deleteTopic(t.id)} className="btn btn--danger btn--sm" style={{ flexShrink: 0 }}>Delete</button>
+                  )}
+                </div>
+              )
+            })
+          )}
         </section>
 
         {/* Modules */}

@@ -43,6 +43,8 @@ urlpatterns = [
     path('classrooms/<int:pk>/teachers/remove/', views.api_classroom_remove_teacher),
     path('classrooms/join/', views.api_join_classroom, name='api_join_classroom'),
     path('teachers/search/', views.api_teacher_search, name='api_teacher_search'),
+    path('topic-suggestions/', views.api_topic_suggestions, name='api_topic_suggestions'),
+    path('topic-suggestions/<int:pk>/', views.api_topic_suggestion_delete, name='api_topic_suggestion_delete'),
 
     # Student classrooms
     path('student/classrooms/', views.api_student_classrooms, name='api_student_classrooms'),
@@ -74,6 +76,8 @@ urlpatterns = [
     path('teach-stem/project-starters/<int:pk>/submit/', views.api_project_starter_submit, name='api_project_starter_submit'),
     path('admin/project-starters/', views.api_admin_project_starters, name='api_admin_project_starters'),
     path('admin/project-starters/<int:pk>/feedback/', views.api_admin_project_starter_feedback, name='api_admin_project_starter_feedback'),
+    path('admin/topic-suggestions/', views.api_admin_topic_suggestions, name='api_admin_topic_suggestions'),
+    path('admin/topic-suggestions/<int:pk>/feedback/', views.api_admin_topic_suggestion_feedback, name='api_admin_topic_suggestion_feedback'),
     path('admin/teach-stem-teachers/', views.api_admin_teach_stem_teachers, name='api_admin_teach_stem_teachers'),
     path('admin/teachers/', views.api_admin_all_teachers, name='api_admin_all_teachers'),
     path('admin/teachers/<int:user_id>/toggle-teach-stem/', views.api_admin_toggle_teach_stem, name='api_admin_toggle_teach_stem'),
