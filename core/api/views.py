@@ -1247,7 +1247,7 @@ def api_admin_project_starter_feedback(request, pk):
 
 @api_view(['GET', 'POST'])
 def api_topic_suggestions(request):
-    """Approved teachers submit a topic idea from the classroom dashboard, for admins to
+    """Approved teachers submit a topic idea from the teaching dashboard, for admins to
     consider developing into a future lesson or project."""
     if not _teacher_required(request):
         return Response({'error': 'Teacher access required.'}, status=403)

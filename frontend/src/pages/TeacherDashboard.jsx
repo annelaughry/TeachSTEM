@@ -30,6 +30,9 @@ export default function TeacherDashboard() {
   const [submittingTopic, setSubmittingTopic] = useState(false)
   const [topicError, setTopicError] = useState(null)
 
+  const [selectedActivityId, setSelectedActivityId] = useState(null)
+  const [selectedModuleId, setSelectedModuleId] = useState(null)
+
   useEffect(() => {
     Promise.all([
       api.get('classrooms/'),
@@ -95,6 +98,9 @@ export default function TeacherDashboard() {
 
   if (loading) return <div className="spinner">Loading…</div>
 
+  const selectedActivity = activities.find(a => a.id === selectedActivityId) || activities[0]
+  const selectedModule = modules.find(m => m.id === selectedModuleId) || modules[0]
+
   return (
     <div className="page">
       <div className="hero" style={{ marginTop: 'var(--nav-h)' }}>
@@ -116,10 +122,27 @@ export default function TeacherDashboard() {
         {activities.length > 0 && (
           <section style={{ marginBottom: '2.5rem' }}>
             <div className="section-title">My Activities</div>
-            {activities.map(act => {
+            <p className="text-muted text-sm" style={{ marginBottom: '0.6rem' }}>
+              Browse your {activities.length} activit{activities.length !== 1 ? 'ies' : 'y'}.
+            </p>
+            <select
+              className="form-input"
+              value={selectedActivity?.id ?? ''}
+              onChange={e => setSelectedActivityId(Number(e.target.value))}
+              style={{ marginBottom: '1rem' }}
+            >
+              {activities.map(act => (
+                <option key={act.id} value={act.id}>
+                  {act.title} — {(STATUS_BADGE[act.status] || STATUS_BADGE.draft).label}
+                </option>
+              ))}
+            </select>
+
+            {selectedActivity && (() => {
+              const act = selectedActivity
               const s = STATUS_BADGE[act.status] || STATUS_BADGE.draft
               return (
-                <div key={act.id} className="card" style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                <div className="card" style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h3 className="truncate" style={{ color: 'var(--text)' }}>{act.title}</h3>
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
@@ -150,7 +173,7 @@ export default function TeacherDashboard() {
                   </div>
                 </div>
               )
-            })}
+            })()}
           </section>
         )}
 
@@ -248,16 +271,32 @@ export default function TeacherDashboard() {
         {modules.length > 0 && (
           <section>
             <div className="section-title">My Modules</div>
-            {modules.map(mod => (
-              <Link to={`/teacher/module/${mod.id}`} key={mod.id} className="card"
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
-                <div>
-                  <h3>{mod.title}</h3>
-                  <p className="text-muted text-sm">{mod.activity_count} activit{mod.activity_count !== 1 ? 'ies' : 'y'}</p>
+            <p className="text-muted text-sm" style={{ marginBottom: '0.6rem' }}>
+              Browse your {modules.length} module{modules.length !== 1 ? 's' : ''}.
+            </p>
+            <select
+              className="form-input"
+              value={selectedModule?.id ?? ''}
+              onChange={e => setSelectedModuleId(Number(e.target.value))}
+              style={{ marginBottom: '1rem' }}
+            >
+              {modules.map(mod => (
+                <option key={mod.id} value={mod.id}>{mod.title}</option>
+              ))}
+            </select>
+
+            {selectedModule && (
+              <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 className="truncate">{selectedModule.title}</h3>
+                  <p className="text-muted text-sm">{selectedModule.activity_count} activit{selectedModule.activity_count !== 1 ? 'ies' : 'y'}</p>
                 </div>
-                <span style={{ color: 'var(--pink)', fontSize: '1.3rem' }}>›</span>
-              </Link>
-            ))}
+                <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                  <Link to={`/teacher/module/${selectedModule.id}`} className="btn btn--ghost btn--sm">View</Link>
+                  <Link to={`/teacher/module/${selectedModule.id}/edit`} className="btn btn--outline btn--sm">Edit</Link>
+                </div>
+              </div>
+            )}
           </section>
         )}
 

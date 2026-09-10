@@ -557,7 +557,7 @@ export default function AdminDashboard() {
         <section style={{ marginBottom: '2.5rem' }}>
           <div className="section-title">Topic Suggestions</div>
           <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
-            Topics approved teachers submitted from their classroom dashboard for future lesson/project development.
+            Topics approved teachers submitted from their teaching dashboard for future lesson/project development.
           </p>
           {topicSubs.length === 0 ? (
             <div className="empty" style={{ marginBottom: '1rem' }}>
