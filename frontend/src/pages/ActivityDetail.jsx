@@ -28,6 +28,7 @@ export default function ActivityDetail() {
   const [savingPoints, setSavingPoints] = useState({})
   const [savedPoints, setSavedPoints]   = useState({})
   const [copying, setCopying]       = useState(false)
+  const [downloading, setDownloading] = useState({})   // { teacher: bool, student: bool }
 
   useEffect(() => {
     const reqs = [api.get(`activities/${id}/`)]
@@ -81,6 +82,21 @@ export default function ActivityDetail() {
       navigate(`/teacher/activity/${data.id}/edit`)
     } finally {
       setCopying(false)
+    }
+  }
+
+  const downloadPdf = async (kind) => {
+    setDownloading(prev => ({ ...prev, [kind]: true }))
+    try {
+      const { data } = await api.get(`activities/${id}/pdf/${kind}/`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${activity.title}-${kind === 'teacher' ? 'teacher' : 'student-handout'}.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } finally {
+      setDownloading(prev => ({ ...prev, [kind]: false }))
     }
   }
 
@@ -203,6 +219,16 @@ export default function ActivityDetail() {
             )}
             {!isTeacher && user && (
               <Link to={`/activity/${id}/work`} className="btn btn--primary">Work on Activity</Link>
+            )}
+            {isTeacher && activity.status === 'approved' && (
+              <>
+                <button onClick={() => downloadPdf('teacher')} className="btn btn--outline" disabled={downloading.teacher}>
+                  {downloading.teacher ? 'Downloading...' : 'Download Teacher PDF'}
+                </button>
+                <button onClick={() => downloadPdf('student')} className="btn btn--outline" disabled={downloading.student}>
+                  {downloading.student ? 'Downloading...' : 'Download Student Handout'}
+                </button>
+              </>
             )}
             {activity.handout_files?.map(f => (
               <a key={f.id} href={f.file} target="_blank" rel="noopener noreferrer" className="btn btn--ghost" title={f.description || undefined}>

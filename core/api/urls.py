@@ -23,6 +23,8 @@ urlpatterns = [
     path('activities/<int:pk>/copy/', views.api_activity_copy, name='api_activity_copy'),
     path('activities/<int:pk>/submit/', views.api_activity_submit, name='api_activity_submit'),
     path('activities/<int:pk>/delete/', views.api_activity_delete, name='api_activity_delete'),
+    path('activities/<int:pk>/pdf/teacher/', views.api_activity_pdf_teacher, name='api_activity_pdf_teacher'),
+    path('activities/<int:pk>/pdf/student/', views.api_activity_pdf_student, name='api_activity_pdf_student'),
     path('activities/<int:activity_pk>/responses/', views.api_student_responses, name='api_student_responses'),
     path('activities/<int:activity_pk>/teacher-responses/', views.api_teacher_responses, name='api_teacher_responses'),
 

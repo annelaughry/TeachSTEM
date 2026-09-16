@@ -4,6 +4,8 @@ from django.contrib.auth import authenticate
 from django.core.files.base import ContentFile
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.http import HttpResponse
+from django.utils.text import slugify
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
@@ -22,6 +24,7 @@ from core.models import (
     StudentReflectionAssignment, StudentReflectionResponse,
 )
 from core.views import _is_teacher, _save_sections_and_standards, _activity_completed_by
+from .pdf import render_activity_pdf
 from .serializers import (
     UserSerializer, ActivityListSerializer, ActivityDetailSerializer, ActivitySectionSerializer,
     GradeLevelSerializer, StandardSerializer, ClassroomListSerializer,
@@ -158,6 +161,103 @@ def api_activity_detail(request, pk):
         return Response({'error': 'Not found.'}, status=404)
 
     return Response(ActivityDetailSerializer(activity).data)
+
+
+def _get_visible_activity_or_none(request, pk):
+    """Same visibility rule as api_activity_detail: approved, owned, admin, or assigned-restricted."""
+    try:
+        activity = Activity.objects.prefetch_related(
+            'grade_levels', 'standards', 'concepts',
+            'sections__prompts', 'sections__links',
+        ).get(pk=pk)
+    except Activity.DoesNotExist:
+        return None
+
+    is_admin = request.user.is_staff or request.user.is_superuser
+    is_assigned = activity.restricted_teachers.filter(pk=request.user.pk).exists()
+    if not (activity.status == 'approved' or
+            activity.created_by == request.user or
+            is_admin or is_assigned):
+        return None
+    return activity
+
+
+def _pdf_response(pdf_bytes, filename):
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@api_view(['GET'])
+def api_activity_pdf_teacher(request, pk):
+    activity = _get_visible_activity_or_none(request, pk)
+    if activity is None:
+        return Response({'error': 'Not found.'}, status=404)
+    if activity.status != 'approved':
+        return Response({'error': 'This lesson must be approved before a PDF can be downloaded.'}, status=403)
+
+    sections = []
+    for section in activity.sections.all():
+        prompts = []
+        for p in section.prompts.all():
+            prompts.append({
+                'kind': p.prompt_type,
+                'text': p.text,
+                'video_url': p.video_url,
+                'response_type_display': p.get_response_type_display(),
+                'table_headers': p.table_headers,
+            })
+        sections.append({
+            'title': section.title,
+            'links': list(section.links.all()),
+            'prompts': prompts,
+        })
+
+    context = {
+        'activity': activity,
+        'grade_levels': activity.grade_levels.all(),
+        'standards': activity.standards.all(),
+        'materials_lines': [line for line in activity.materials.split('\n') if line],
+        'sections': sections,
+    }
+    pdf_bytes = render_activity_pdf('pdf/teacher.html', context)
+    return _pdf_response(pdf_bytes, f'{slugify(activity.title)}-teacher.pdf')
+
+
+@api_view(['GET'])
+def api_activity_pdf_student(request, pk):
+    activity = _get_visible_activity_or_none(request, pk)
+    if activity is None:
+        return Response({'error': 'Not found.'}, status=404)
+    if activity.status != 'approved':
+        return Response({'error': 'This lesson must be approved before a PDF can be downloaded.'}, status=403)
+
+    sections = []
+    for section in activity.sections.all():
+        blocks = []
+        for p in section.prompts.all():
+            if p.prompt_type == 'instruction':
+                blocks.append({'type': 'instruction', 'text': p.text})
+            elif p.prompt_type == 'video_embed':
+                blocks.append({'type': 'video', 'text': p.text, 'url': p.video_url})
+            elif p.prompt_type == 'student':
+                if p.response_type == 'table':
+                    blocks.append({'type': 'table_prompt', 'text': p.text, 'headers': p.table_headers})
+                elif p.response_type == 'video':
+                    blocks.append({'type': 'video_prompt', 'text': p.text})
+                else:
+                    blocks.append({'type': 'text_prompt', 'text': p.text})
+            # 'teacher' notes are intentionally excluded from the student handout.
+        if blocks:
+            sections.append({'title': section.title, 'blocks': blocks})
+
+    context = {
+        'activity': activity,
+        'grade_levels': activity.grade_levels.all(),
+        'sections': sections,
+    }
+    pdf_bytes = render_activity_pdf('pdf/student.html', context)
+    return _pdf_response(pdf_bytes, f'{slugify(activity.title)}-student-handout.pdf')
 
 
 @api_view(['GET'])

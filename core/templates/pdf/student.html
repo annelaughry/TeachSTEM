@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: letter; margin: 2cm 1.8cm; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #222; }
+  h1 { color: #F2385A; font-size: 20pt; margin: 0 0 6pt 0; }
+  h2 { color: #F2385A; font-size: 14pt; margin: 18pt 0 8pt 0; padding-bottom: 4pt; border-bottom: 2px solid #FDE8ED; }
+  .meta { font-size: 9pt; color: #666; margin-bottom: 4pt; }
+  .badge { display: inline; background: #F2F2F2; color: #555; border-radius: 3px; padding: 1pt 6pt; margin-right: 5pt; font-size: 8pt; }
+  .name-line { margin: 10pt 0 4pt 0; font-size: 10pt; }
+  .name-line .fill { display: inline-block; border-bottom: 1px solid #999; width: 260pt; margin-left: 6pt; }
+  .instruction { background: #E0F7F7; border-left: 3px solid #3CC4C4; border-radius: 0 4px 4px 0; padding: 7pt 10pt; margin-bottom: 9pt; white-space: pre-wrap; }
+  .video-note { background: #F5F0FF; border-left: 3px solid #8B5CF6; border-radius: 0 4px 4px 0; padding: 7pt 10pt; margin-bottom: 9pt; }
+  .video-note a { color: #5B21B6; }
+  .prompt { margin-bottom: 14pt; }
+  .prompt-text { white-space: pre-wrap; margin-bottom: 6pt; }
+  .table-instructions { font-size: 9.5pt; color: #555; margin-bottom: 4pt; }
+  .table-instructions ul { margin: 3pt 0 0 0; padding-left: 16pt; }
+  .draw-box-table, .answer-lines-table { width: 100%; border-collapse: collapse; }
+  .draw-box-cell { border: 1px solid #999; height: 170pt; }
+  .answer-line-cell { border-bottom: 1px solid #999; height: 20pt; }
+  .video-response-note { font-size: 9.5pt; color: #555; font-style: italic; }
+</style>
+</head>
+<body>
+  <h1>{{ activity.title }}</h1>
+  <div class="meta">
+    {% for g in grade_levels %}<span class="badge">{{ g.name }}</span>{% endfor %}
+    {% if activity.duration_minutes %}<span class="badge">{{ activity.duration_minutes }} min</span>{% endif %}
+  </div>
+  <div class="name-line">Name:<span class="fill">&nbsp;</span></div>
+
+  {% for section in sections %}
+    <h2>{{ section.title }}</h2>
+    {% for block in section.blocks %}
+      {% if block.type == 'instruction' %}
+        <div class="instruction">{{ block.text }}</div>
+      {% elif block.type == 'video' %}
+        <div class="video-note">
+          🎥 Watch{% if block.text %}: {{ block.text }}{% endif %}<br>
+          <a href="{{ block.url }}">{{ block.url }}</a>
+        </div>
+      {% elif block.type == 'table_prompt' %}
+        <div class="prompt">
+          <div class="prompt-text">{{ block.text }}</div>
+          <div class="table-instructions">
+            Draw your own data table below with these column headings:
+            <ul>{% for h in block.headers %}<li>{{ h }}</li>{% endfor %}</ul>
+          </div>
+          <table class="draw-box-table"><tr><td class="draw-box-cell">&nbsp;</td></tr></table>
+        </div>
+      {% elif block.type == 'video_prompt' %}
+        <div class="prompt">
+          <div class="prompt-text">{{ block.text }}</div>
+          <div class="video-response-note">Record and submit a video response for this prompt.</div>
+        </div>
+      {% else %}
+        <div class="prompt">
+          <div class="prompt-text">{{ block.text }}</div>
+          <table class="answer-lines-table">
+            <tr><td class="answer-line-cell">&nbsp;</td></tr>
+            <tr><td class="answer-line-cell">&nbsp;</td></tr>
+            <tr><td class="answer-line-cell">&nbsp;</td></tr>
+            <tr><td class="answer-line-cell">&nbsp;</td></tr>
+            <tr><td class="answer-line-cell">&nbsp;</td></tr>
+          </table>
+        </div>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+</body>
+</html>

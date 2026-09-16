@@ -17,3 +17,6 @@ boto3==1.35.0
 
 # Local env var loading (dev convenience; not required in containers)
 python-dotenv==1.0.1
+
+# PDF export (pure-Python, no system libs required — safe for Render's native runtime)
+xhtml2pdf==0.2.16

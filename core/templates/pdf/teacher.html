@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: letter; margin: 2cm 1.8cm; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #222; }
+  h1 { color: #F2385A; font-size: 20pt; margin: 0 0 6pt 0; }
+  h2 { color: #F2385A; font-size: 14pt; margin: 18pt 0 8pt 0; padding-bottom: 4pt; border-bottom: 2px solid #FDE8ED; }
+  .meta { font-size: 9pt; color: #666; margin-bottom: 4pt; }
+  .badge { display: inline; background: #F2F2F2; color: #555; border-radius: 3px; padding: 1pt 6pt; margin-right: 5pt; font-size: 8pt; }
+  .overview { background: #FAFAFA; border: 1px solid #E0E0E0; border-radius: 4px; padding: 8pt 10pt; margin-bottom: 10pt; }
+  .block { margin-bottom: 9pt; padding: 7pt 10pt; border-radius: 4px; }
+  .block-label { font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 3pt; }
+  .block-teacher { background: #FEF5E7; border-left: 3px solid #F7A826; }
+  .block-teacher .block-label { color: #D9901A; }
+  .block-instruction { background: #E0F7F7; border-left: 3px solid #3CC4C4; }
+  .block-instruction .block-label { color: #2EA8A8; }
+  .block-student { background: #FAFAFA; border: 1px solid #E0E0E0; }
+  .block-student .block-label { color: #F2385A; }
+  .block-video { background: #F5F0FF; border-left: 3px solid #8B5CF6; }
+  .block-video .block-label { color: #5B21B6; }
+  .block-text { white-space: pre-wrap; }
+  .columns { font-size: 9pt; color: #666; margin-top: 3pt; }
+  .link-row { font-size: 9pt; margin-bottom: 3pt; }
+  .link-row a { color: #1A5276; }
+</style>
+</head>
+<body>
+  <h1>{{ activity.title }}</h1>
+  <div class="meta">
+    <span class="badge">{{ activity.get_activity_type_display }}</span>
+    {% for g in grade_levels %}<span class="badge">{{ g.name }}</span>{% endfor %}
+    {% if activity.duration_minutes %}<span class="badge">{{ activity.duration_minutes }} min</span>{% endif %}
+    {% for s in standards %}<span class="badge">{{ s.code }}</span>{% endfor %}
+  </div>
+
+  {% if activity.description or activity.materials %}
+  <div class="overview">
+    {% if activity.description %}<p>{{ activity.description }}</p>{% endif %}
+    {% if activity.materials %}
+      <strong>Materials:</strong>
+      <ul>
+        {% for line in materials_lines %}<li>{{ line }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% for section in sections %}
+    <h2>{{ section.title }}</h2>
+    {% for link in section.links %}
+      <div class="link-row">🔗 <a href="{{ link.url }}">{{ link.label|default:link.url }}</a></div>
+    {% endfor %}
+    {% for block in section.prompts %}
+      {% if block.kind == 'teacher' %}
+        <div class="block block-teacher">
+          <div class="block-label">Teacher Note</div>
+          <div class="block-text">{{ block.text }}</div>
+        </div>
+      {% elif block.kind == 'instruction' %}
+        <div class="block block-instruction">
+          <div class="block-label">Student Instructions</div>
+          <div class="block-text">{{ block.text }}</div>
+        </div>
+      {% elif block.kind == 'video_embed' %}
+        <div class="block block-video">
+          <div class="block-label">Video</div>
+          {% if block.text %}<div class="block-text">{{ block.text }}</div>{% endif %}
+          <div class="link-row"><a href="{{ block.video_url }}">{{ block.video_url }}</a></div>
+        </div>
+      {% else %}
+        <div class="block block-student">
+          <div class="block-label">Student Prompt &mdash; {{ block.response_type_display }}</div>
+          <div class="block-text">{{ block.text }}</div>
+          {% if block.table_headers %}
+            <div class="columns">Columns: {{ block.table_headers|join:", " }}</div>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+</body>
+</html>
