@@ -59,6 +59,33 @@ export default function AdminDashboard() {
   const [savingTask, setSavingTask] = useState(false)
   const [taskError, setTaskError]   = useState(null)
 
+  // Staff project topic reviews
+  const [staffProjectSubs, setStaffProjectSubs] = useState([])
+  const [staffFeedbacks, setStaffFeedbacks]     = useState({})
+  const [savingStaffFb, setSavingStaffFb]       = useState({})
+  const [savedStaffFb, setSavedStaffFb]         = useState({})
+  const [expandedStaffSub, setExpandedStaffSub] = useState(null)
+
+  // Staff project starter reviews
+  const [staffStarterSubs, setStaffStarterSubs]         = useState([])
+  const [staffStarterFeedbacks, setStaffStarterFeedbacks] = useState({})
+  const [savingStaffStarterFb, setSavingStaffStarterFb] = useState({})
+  const [savedStaffStarterFb, setSavedStaffStarterFb]   = useState({})
+  const [expandedStaffStarter, setExpandedStaffStarter] = useState(null)
+
+  // Staff profile viewer
+  const [expandedStaffProfile, setExpandedStaffProfile] = useState(null)
+  const [staffProfiles, setStaffProfiles]               = useState({})
+  const [staffProfileLoading, setStaffProfileLoading]   = useState({})
+
+  // Staff tasks state
+  const [staffTasks, setStaffTasks]         = useState([])
+  const [staffTaskForm, setStaffTaskForm]   = useState(BLANK_TASK)
+  const [editingStaffTask, setEditingStaffTask] = useState(null)
+  const [staffEditForm, setStaffEditForm]   = useState({})
+  const [savingStaffTask, setSavingStaffTask] = useState(false)
+  const [staffTaskError, setStaffTaskError]   = useState(null)
+
   useEffect(() => {
     Promise.all([
       api.get('admin/dashboard/'),
@@ -67,16 +94,24 @@ export default function AdminDashboard() {
       api.get('admin/project-starters/'),
       api.get('admin/topic-suggestions/'),
       api.get('admin/survey-results/tstem/'),
-    ]).then(([dash, t, ps, pst, top, tstem]) => {
+      api.get('program-staff/tasks/'),
+      api.get('admin/staff-project-topics/'),
+      api.get('admin/staff-project-starters/'),
+    ]).then(([dash, t, ps, pst, top, tstem, st, sps, spst]) => {
       setData(dash.data)
       setTasks(t.data)
       setProjectSubs(ps.data)
       setStarterSubs(pst.data)
       setTopicSubs(top.data)
       setTstemResults(tstem.data)
+      setStaffTasks(st.data)
+      setStaffProjectSubs(sps.data)
+      setStaffStarterSubs(spst.data)
       if (ps.data.length > 0) setExpandedSub(ps.data[0].id)
       if (pst.data.length > 0) setExpandedStarter(pst.data[0].id)
       if (top.data.length > 0) setExpandedTopic(top.data[0].id)
+      if (sps.data.length > 0) setExpandedStaffSub(sps.data[0].id)
+      if (spst.data.length > 0) setExpandedStaffStarter(spst.data[0].id)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -131,6 +166,34 @@ export default function AdminDashboard() {
       setProfiles(prev => ({ ...prev, [teacherId]: { error: true } }))
     } finally {
       setProfileLoading(p => ({ ...p, [teacherId]: false }))
+    }
+  }
+
+  const toggleProgramStaff = async (teacher) => {
+    setToggling(t => ({ ...t, [teacher.id]: true }))
+    try {
+      const { data } = await api.post(`admin/teachers/${teacher.id}/toggle-program-staff/`)
+      setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, program_staff_approved: data.program_staff_approved } : t))
+    } finally {
+      setToggling(t => ({ ...t, [teacher.id]: false }))
+    }
+  }
+
+  const toggleStaffProfile = async (teacherId) => {
+    if (expandedStaffProfile === teacherId) {
+      setExpandedStaffProfile(null)
+      return
+    }
+    setExpandedStaffProfile(teacherId)
+    if (staffProfiles[teacherId]) return
+    setStaffProfileLoading(p => ({ ...p, [teacherId]: true }))
+    try {
+      const { data } = await api.get(`admin/teachers/${teacherId}/staff-profile/`)
+      setStaffProfiles(prev => ({ ...prev, [teacherId]: data }))
+    } catch {
+      setStaffProfiles(prev => ({ ...prev, [teacherId]: { error: true } }))
+    } finally {
+      setStaffProfileLoading(p => ({ ...p, [teacherId]: false }))
     }
   }
 
@@ -212,6 +275,55 @@ export default function AdminDashboard() {
     setTasks(prev => prev.filter(t => t.id !== id))
   }
 
+  const saveStaffFeedback = async (id) => {
+    setSavingStaffFb(p => ({ ...p, [id]: true }))
+    try {
+      const { data } = await api.post(`admin/staff-project-topics/${id}/feedback/`, { feedback: staffFeedbacks[id] || '' })
+      setStaffProjectSubs(prev => prev.map(s => s.id === id ? data : s))
+      setSavedStaffFb(p => ({ ...p, [id]: true }))
+      setTimeout(() => setSavedStaffFb(p => { const n = { ...p }; delete n[id]; return n }), 2500)
+    } finally { setSavingStaffFb(p => ({ ...p, [id]: false })) }
+  }
+
+  const saveStaffStarterFeedback = async (id) => {
+    setSavingStaffStarterFb(p => ({ ...p, [id]: true }))
+    try {
+      const { data } = await api.post(`admin/staff-project-starters/${id}/feedback/`, { feedback: staffStarterFeedbacks[id] || '' })
+      setStaffStarterSubs(prev => prev.map(s => s.id === id ? data : s))
+      setSavedStaffStarterFb(p => ({ ...p, [id]: true }))
+      setTimeout(() => setSavedStaffStarterFb(p => { const n = { ...p }; delete n[id]; return n }), 2500)
+    } finally { setSavingStaffStarterFb(p => ({ ...p, [id]: false })) }
+  }
+
+  const addStaffTask = async (e) => {
+    e.preventDefault()
+    setStaffTaskError(null)
+    if (!staffTaskForm.title.trim()) { setStaffTaskError('Title is required.'); return }
+    setSavingStaffTask(true)
+    try {
+      const { data: created } = await api.post('program-staff/tasks/', staffTaskForm)
+      setStaffTasks(prev => [...prev, created].sort(byDueDate))
+      setStaffTaskForm(BLANK_TASK)
+    } catch { setStaffTaskError('Something went wrong.') }
+    finally { setSavingStaffTask(false) }
+  }
+
+  const saveStaffEdit = async (id) => {
+    setSavingStaffTask(true)
+    try {
+      const { data: updated } = await api.put(`program-staff/tasks/${id}/`, staffEditForm)
+      setStaffTasks(prev => prev.map(t => t.id === id ? updated : t).sort(byDueDate))
+      setEditingStaffTask(null)
+    } catch { setStaffTaskError('Something went wrong.') }
+    finally { setSavingStaffTask(false) }
+  }
+
+  const deleteStaffTask = async (id, title) => {
+    if (!window.confirm(`Delete task "${title}"?`)) return
+    await api.delete(`program-staff/tasks/${id}/`)
+    setStaffTasks(prev => prev.filter(t => t.id !== id))
+  }
+
   if (loading) return <div className="spinner">Loading…</div>
 
   return (
@@ -240,6 +352,11 @@ export default function AdminDashboard() {
                         Teach STEM
                       </span>
                     )}
+                    {t.is_program_staff && (
+                      <span style={{ marginLeft: '0.5rem', background: 'var(--yellow)', color: '#fff', borderRadius: 4, padding: '1px 6px', fontSize: '0.75rem', fontWeight: 700 }}>
+                        Staff
+                      </span>
+                    )}
                   </p>
                 </div>
                 <button
@@ -258,7 +375,7 @@ export default function AdminDashboard() {
         <section style={{ marginBottom: '2.5rem' }}>
           <div className="section-title">All Teachers</div>
           <p className="text-muted text-sm" style={{ marginBottom: '0.75rem' }}>
-            Search approved teacher accounts and manage Teach STEM status.
+            Search approved teacher accounts and manage Teach STEM and Staff status.
           </p>
           <input
             className="form-input"
@@ -278,7 +395,7 @@ export default function AdminDashboard() {
                   <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t.name}</div>
                   <div className="text-muted text-sm">@{t.username}{t.email ? ` · ${t.email}` : ''}</div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0, flexWrap: 'wrap' }}>
                   {t.teach_stem_approved && (
                     <button
                       onClick={() => toggleProfile(t.id)}
@@ -302,6 +419,29 @@ export default function AdminDashboard() {
                   >
                     {toggling[t.id] ? '…' : t.teach_stem_approved ? 'Teach STEM' : 'Not Teach STEM'}
                   </button>
+                  {t.program_staff_approved && (
+                    <button
+                      onClick={() => toggleStaffProfile(t.id)}
+                      className="btn btn--outline btn--sm"
+                    >
+                      {expandedStaffProfile === t.id ? 'Hide Staff Profile' : 'View Staff Profile'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => toggleProgramStaff(t)}
+                    disabled={toggling[t.id]}
+                    className="btn btn--sm"
+                    style={{
+                      flexShrink: 0,
+                      background: t.program_staff_approved ? 'var(--yellow)' : '#f5f5f5',
+                      border: `1px solid ${t.program_staff_approved ? 'var(--yellow-dark)' : 'var(--border)'}`,
+                      color: t.program_staff_approved ? '#fff' : 'var(--text-muted)',
+                      fontWeight: 700,
+                      minWidth: 90,
+                    }}
+                  >
+                    {toggling[t.id] ? '…' : t.program_staff_approved ? 'Staff' : 'Not Staff'}
+                  </button>
                 </div>
               </div>
 
@@ -324,6 +464,31 @@ export default function AdminDashboard() {
                     ) : (
                       <p className="text-muted text-sm" style={{ fontStyle: 'italic' }}>
                         This teacher hasn't filled out their Teach STEM profile yet.
+                      </p>
+                    )
+                  )}
+                </div>
+              )}
+
+              {expandedStaffProfile === t.id && (
+                <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border)' }}>
+                  {staffProfileLoading[t.id] && <p className="text-muted text-sm">Loading profile…</p>}
+                  {!staffProfileLoading[t.id] && staffProfiles[t.id]?.error && (
+                    <p className="text-muted text-sm" style={{ fontStyle: 'italic' }}>Couldn't load this profile.</p>
+                  )}
+                  {!staffProfileLoading[t.id] && staffProfiles[t.id] && !staffProfiles[t.id].error && (
+                    staffProfiles[t.id].has_profile ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.6rem 1rem' }}>
+                        <ProfileField label="Name" value={staffProfiles[t.id].name} />
+                        <ProfileField label="School" value={staffProfiles[t.id].school} />
+                        <ProfileField label="Subject / Role" value={staffProfiles[t.id].subject_taught} />
+                        <ProfileField label="Number of Students" value={staffProfiles[t.id].num_students} />
+                        <ProfileField label="Years of Experience" value={staffProfiles[t.id].years_teaching} />
+                        <ProfileField label="Email" value={staffProfiles[t.id].email} />
+                      </div>
+                    ) : (
+                      <p className="text-muted text-sm" style={{ fontStyle: 'italic' }}>
+                        This teacher hasn't filled out their Staff profile yet.
                       </p>
                     )
                   )}
@@ -359,6 +524,36 @@ export default function AdminDashboard() {
                     onClick={() => action('approve_teach_stem', { user_id: t.id })}
                     className="btn btn--teal btn--sm"
                     disabled={acting[`approve_teach_stem-${JSON.stringify({ user_id: t.id })}`]}
+                  >Verify</button>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {/* Pending Program Staff verifications */}
+        {data?.pending_program_staff?.length > 0 && (
+          <section style={{ marginBottom: '2.5rem' }}>
+            <div className="section-title">Pending Staff Verifications</div>
+            <p className="text-muted text-sm" style={{ marginBottom: '0.75rem' }}>
+              These approved teachers self-identified as Staff members and are awaiting membership verification.
+            </p>
+            {data.pending_program_staff.map(t => (
+              <div key={t.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', borderLeft: '4px solid var(--yellow)' }}>
+                <div>
+                  <h3>{t.name}</h3>
+                  <p className="text-muted text-sm">@{t.username}{t.email ? ` · ${t.email}` : ''}</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                  <button
+                    onClick={() => { if (window.confirm(`Reject Staff status for ${t.name}?`)) action('reject_program_staff', { user_id: t.id }) }}
+                    className="btn btn--danger btn--sm"
+                    disabled={acting[`reject_program_staff-${JSON.stringify({ user_id: t.id })}`]}
+                  >Reject</button>
+                  <button
+                    onClick={() => action('approve_program_staff', { user_id: t.id })}
+                    className="btn btn--yellow btn--sm"
+                    disabled={acting[`approve_program_staff-${JSON.stringify({ user_id: t.id })}`]}
                   >Verify</button>
                 </div>
               </div>
@@ -617,6 +812,193 @@ export default function AdminDashboard() {
           )}
         </section>
 
+        {/* Staff Project Topic Reviews */}
+        <section style={{ marginBottom: '2.5rem' }}>
+          <div className="section-title">Staff Project Topic Submissions</div>
+          <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
+            Staff members who submitted project plans for review.
+          </p>
+          {staffProjectSubs.length === 0 ? (
+            <div className="empty" style={{ marginBottom: '1rem' }}>
+              <p style={{ fontStyle: 'italic' }}>No submissions yet.</p>
+            </div>
+          ) : (
+            staffProjectSubs.map(sub => (
+              <div key={sub.id} className="card" style={{ marginBottom: '0.75rem', padding: 0, overflow: 'hidden', borderLeft: `4px solid ${sub.status === 'reviewed' ? '#2e7d32' : 'var(--yellow)'}` }}>
+                <button
+                  type="button"
+                  onClick={() => setExpandedStaffSub(expandedStaffSub === sub.id ? null : sub.id)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1.25rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>
+                      {sub.classroom_name || 'Unnamed class'}{sub.grade_level ? ` — ${sub.grade_level}` : ''}
+                    </div>
+                    <div className="text-muted text-sm" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.1rem' }}>
+                      <span>{sub.teacher_name}</span>
+                      {sub.num_students && <span>{sub.num_students} students</span>}
+                      <span style={{ fontWeight: 700, color: sub.status === 'reviewed' ? '#2e7d32' : 'var(--yellow-dark)' }}>
+                        {sub.status === 'reviewed' ? 'Reviewed' : 'Awaiting Review'}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '1.1rem', flexShrink: 0 }}>
+                    {expandedStaffSub === sub.id ? '▾' : '▸'}
+                  </span>
+                </button>
+
+                {expandedStaffSub === sub.id && (
+                  <div style={{ padding: '0 1.25rem 1.25rem', borderTop: '1px solid var(--border)' }}>
+                    {sub.overview && <ReviewField label="Project Goal / Overview">{sub.overview}</ReviewField>}
+                    {sub.standards && <ReviewField label="Standards">{sub.standards}</ReviewField>}
+                    {sub.background_concepts && <ReviewField label="Background Concepts">{sub.background_concepts}</ReviewField>}
+                    {sub.research_questions?.length > 0 && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <ReviewLabel>Research Questions</ReviewLabel>
+                        <ol style={{ margin: '0.35rem 0 0 1.2rem', padding: 0 }}>
+                          {sub.research_questions.map((q, i) => (
+                            <li key={i} style={{ fontSize: '0.92rem', color: '#333', marginBottom: '0.3rem' }}>{q}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                    {sub.materials && <ReviewField label="Materials">{sub.materials}</ReviewField>}
+                    <div style={{ marginTop: '1.25rem' }}>
+                      <ReviewLabel>Feedback</ReviewLabel>
+                      <textarea
+                        className="form-input"
+                        rows={3}
+                        style={{ marginBottom: '0.5rem' }}
+                        value={staffFeedbacks[sub.id] ?? sub.admin_feedback ?? ''}
+                        onChange={e => setStaffFeedbacks(p => ({ ...p, [sub.id]: e.target.value }))}
+                        placeholder="Write feedback for this teacher..."
+                      />
+                      <button
+                        type="button"
+                        className="btn btn--yellow btn--sm"
+                        onClick={() => saveStaffFeedback(sub.id)}
+                        disabled={savingStaffFb[sub.id]}
+                        style={{ background: savedStaffFb[sub.id] ? '#2e7d32' : undefined }}
+                      >
+                        {savingStaffFb[sub.id] ? 'Saving...' : savedStaffFb[sub.id] ? 'Saved' : sub.status === 'reviewed' ? 'Update Feedback' : 'Submit Feedback'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </section>
+
+        {/* Staff Project Starter Reviews */}
+        <section style={{ marginBottom: '2.5rem' }}>
+          <div className="section-title">Staff Project Starter Submissions</div>
+          <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
+            Custom project guides Staff members submitted for review.
+          </p>
+          {staffStarterSubs.length === 0 ? (
+            <div className="empty" style={{ marginBottom: '1rem' }}>
+              <p style={{ fontStyle: 'italic' }}>No submissions yet.</p>
+            </div>
+          ) : (
+            staffStarterSubs.map(sub => (
+              <div key={sub.id} className="card" style={{ marginBottom: '0.75rem', padding: 0, overflow: 'hidden', borderLeft: `4px solid ${sub.status === 'reviewed' ? '#2e7d32' : 'var(--yellow)'}` }}>
+                <button
+                  type="button"
+                  onClick={() => setExpandedStaffStarter(expandedStaffStarter === sub.id ? null : sub.id)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1.25rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>
+                      {sub.title || 'Untitled starter'}
+                    </div>
+                    <div className="text-muted text-sm" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.1rem' }}>
+                      <span>{sub.teacher_name}</span>
+                      <span style={{ fontWeight: 700, color: sub.status === 'reviewed' ? '#2e7d32' : 'var(--yellow-dark)' }}>
+                        {sub.status === 'reviewed' ? 'Reviewed' : 'Awaiting Review'}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '1.1rem', flexShrink: 0 }}>
+                    {expandedStaffStarter === sub.id ? '▾' : '▸'}
+                  </span>
+                </button>
+
+                {expandedStaffStarter === sub.id && (
+                  <div style={{ padding: '0 1.25rem 1.25rem', borderTop: '1px solid var(--border)' }}>
+                    {sub.overview && <ReviewField label="Overview">{sub.overview}</ReviewField>}
+
+                    {sub.competencies?.length > 0 && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <ReviewLabel>Project Competencies</ReviewLabel>
+                        <ul style={{ margin: '0.35rem 0 0 1.2rem', padding: 0 }}>
+                          {sub.competencies.map((c, i) => (
+                            <li key={i} style={{ fontSize: '0.92rem', color: '#333', marginBottom: '0.3rem' }}>
+                              {c.skill && <strong>{c.skill}: </strong>}{c.description}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {sub.steps?.length > 0 && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <ReviewLabel>Getting Started</ReviewLabel>
+                        <ol style={{ margin: '0.35rem 0 0 1.2rem', padding: 0 }}>
+                          {sub.steps.map((s, i) => (
+                            <li key={i} style={{ fontSize: '0.92rem', color: '#333', marginBottom: '0.4rem' }}>
+                              {s.heading && <strong>{s.heading}</strong>}
+                              {s.items?.length > 0 && (
+                                <ul style={{ margin: '0.25rem 0 0 1.1rem', padding: 0 }}>
+                                  {s.items.map((it, ii) => (
+                                    <li key={ii} style={{ marginBottom: '0.15rem' }}>{it}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+
+                    {sub.tips?.length > 0 && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <ReviewLabel>Tips for Success</ReviewLabel>
+                        <ul style={{ margin: '0.35rem 0 0 1.2rem', padding: 0 }}>
+                          {sub.tips.map((t, i) => (
+                            <li key={i} style={{ fontSize: '0.92rem', color: '#333', marginBottom: '0.3rem' }}>{t}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: '1.25rem' }}>
+                      <ReviewLabel>Feedback</ReviewLabel>
+                      <textarea
+                        className="form-input"
+                        rows={3}
+                        style={{ marginBottom: '0.5rem' }}
+                        value={staffStarterFeedbacks[sub.id] ?? sub.admin_feedback ?? ''}
+                        onChange={e => setStaffStarterFeedbacks(p => ({ ...p, [sub.id]: e.target.value }))}
+                        placeholder="Write feedback for this teacher..."
+                      />
+                      <button
+                        type="button"
+                        className="btn btn--yellow btn--sm"
+                        onClick={() => saveStaffStarterFeedback(sub.id)}
+                        disabled={savingStaffStarterFb[sub.id]}
+                        style={{ background: savedStaffStarterFb[sub.id] ? '#2e7d32' : undefined }}
+                      >
+                        {savingStaffStarterFb[sub.id] ? 'Saving...' : savedStaffStarterFb[sub.id] ? 'Saved' : sub.status === 'reviewed' ? 'Update Feedback' : 'Submit Feedback'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </section>
+
         {/* Teach STEM Tasks */}
         <section style={{ marginBottom: '2.5rem' }}>
           <div className="section-title">Teach STEM Tasks</div>
@@ -724,6 +1106,118 @@ export default function AdminDashboard() {
               </div>
               {taskError && (
                 <p style={{ color: '#c62828', fontSize: '0.85rem', marginTop: '0.5rem' }}>{taskError}</p>
+              )}
+            </form>
+          </div>
+        </section>
+
+        {/* Staff Tasks */}
+        <section style={{ marginBottom: '2.5rem' }}>
+          <div className="section-title">Staff Tasks</div>
+          <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
+            Tasks posted here appear on every Staff member's dashboard.
+          </p>
+
+          {/* Existing tasks */}
+          {staffTasks.length === 0 && (
+            <div className="empty" style={{ marginBottom: '1rem' }}>
+              <p style={{ fontStyle: 'italic' }}>No tasks yet.</p>
+            </div>
+          )}
+          {staffTasks.map(task => (
+            <div key={task.id} className="card" style={{ marginBottom: '0.75rem', borderLeft: '4px solid var(--yellow)' }}>
+              {editingStaffTask === task.id ? (
+                <div>
+                  <input
+                    className="form-input"
+                    style={{ marginBottom: '0.5rem', fontWeight: 700 }}
+                    value={staffEditForm.title}
+                    onChange={e => setStaffEditForm(f => ({ ...f, title: e.target.value }))}
+                  />
+                  <textarea
+                    className="form-input"
+                    rows={2}
+                    style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}
+                    value={staffEditForm.description}
+                    onChange={e => setStaffEditForm(f => ({ ...f, description: e.target.value }))}
+                  />
+                  <input
+                    type="date"
+                    className="form-input"
+                    style={{ marginBottom: '0.75rem', width: 'auto' }}
+                    value={staffEditForm.due_date}
+                    onChange={e => setStaffEditForm(f => ({ ...f, due_date: e.target.value }))}
+                  />
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button onClick={() => saveStaffEdit(task.id)} className="btn btn--yellow btn--sm" disabled={savingStaffTask}>
+                      {savingStaffTask ? 'Saving...' : 'Save'}
+                    </button>
+                    <button onClick={() => setEditingStaffTask(null)} className="btn btn--outline btn--sm">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.97rem', marginBottom: '0.15rem' }}>{task.title}</div>
+                    {task.description && (
+                      <p className="text-muted text-sm" style={{ marginBottom: '0.3rem' }}>{task.description}</p>
+                    )}
+                    {task.due_date && (
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isOverdue(task.due_date) ? '#c62828' : 'var(--yellow-dark)' }}>
+                        Due {formatDate(task.due_date)}{isOverdue(task.due_date) ? ' — overdue' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
+                    <button
+                      onClick={() => { setEditingStaffTask(task.id); setStaffEditForm({ title: task.title, description: task.description, due_date: task.due_date || '' }) }}
+                      className="btn btn--outline btn--sm"
+                    >Edit</button>
+                    <button onClick={() => deleteStaffTask(task.id, task.title)} className="btn btn--danger btn--sm">Delete</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Add new task form */}
+          <div className="card" style={{ background: '#fffdf8', border: '1px dashed var(--yellow)' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--yellow-dark)', marginBottom: '0.75rem' }}>
+              Add New Task
+            </div>
+            <form onSubmit={addStaffTask}>
+              <input
+                className="form-input"
+                style={{ marginBottom: '0.5rem', fontWeight: 600 }}
+                placeholder="Task title"
+                value={staffTaskForm.title}
+                onChange={e => setStaffTaskForm(f => ({ ...f, title: e.target.value }))}
+              />
+              <textarea
+                className="form-input"
+                rows={2}
+                style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}
+                placeholder="Description (optional)"
+                value={staffTaskForm.description}
+                onChange={e => setStaffTaskForm(f => ({ ...f, description: e.target.value }))}
+              />
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div>
+                  <label className="form-label">Due Date (optional)</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    style={{ width: 'auto' }}
+                    value={staffTaskForm.due_date}
+                    onChange={e => setStaffTaskForm(f => ({ ...f, due_date: e.target.value }))}
+                  />
+                </div>
+                <button type="submit" className="btn btn--yellow btn--sm" disabled={savingStaffTask}>
+                  {savingStaffTask ? 'Adding...' : 'Add Task'}
+                </button>
+              </div>
+              {staffTaskError && (
+                <p style={{ color: '#c62828', fontSize: '0.85rem', marginTop: '0.5rem' }}>{staffTaskError}</p>
               )}
             </form>
           </div>

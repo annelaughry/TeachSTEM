@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 
 export default function Nav() {
-  const { user, logout, isTeacher, isAdmin, isTeachSTEM } = useAuth()
+  const { user, logout, isTeacher, isAdmin, isTeachSTEM, isProgramStaff } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
 
@@ -48,6 +48,9 @@ export default function Nav() {
             <NavLink to="/teacher/modules" className={({ isActive }) => 'nav__link' + (isActive ? ' nav__link--active' : '')}>Modules</NavLink>
             {isTeachSTEM && (
               <NavLink to="/teach-stem" className={({ isActive }) => 'nav__link' + (isActive ? ' nav__link--active' : '')}>Teach STEM</NavLink>
+            )}
+            {isProgramStaff && (
+              <NavLink to="/program-staff" className={({ isActive }) => 'nav__link' + (isActive ? ' nav__link--active' : '')}>Staff</NavLink>
             )}
             {isTeachSTEM && (
               <NavLink to="/teacher/activity/create" className={({ isActive }) => 'nav__link' + (isActive ? ' nav__link--active' : '')}>Create a Lesson</NavLink>

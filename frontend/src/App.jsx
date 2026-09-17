@@ -32,14 +32,20 @@ import StudentThreeTwoOne from './pages/StudentThreeTwoOne'
 import StudentReflectionList from './pages/StudentReflectionList'
 import StudentReflectionResponses from './pages/StudentReflectionResponses'
 import StudentReflectionForm from './pages/StudentReflectionForm'
+import StaffDashboard from './pages/StaffDashboard'
+import StaffProfilePage from './pages/StaffProfilePage'
+import StaffProjectTopics from './pages/StaffProjectTopics'
+import StaffProjectStarterBuilder from './pages/StaffProjectStarterBuilder'
+import StaffProjectReflectionSurvey from './pages/StaffProjectReflectionSurvey'
 
 function RequireAuth({ children, role }) {
-  const { user, loading, isTeacher, isAdmin, isTeachSTEM } = useAuth()
+  const { user, loading, isTeacher, isAdmin, isTeachSTEM, isProgramStaff } = useAuth()
   if (loading) return <div className="spinner">Loading…</div>
   if (!user) return <Navigate to="/login" replace />
   if (role === 'teacher' && !isTeacher) return <Navigate to="/student" replace />
   if (role === 'admin' && !isAdmin) return <Navigate to="/" replace />
   if (role === 'teach_stem' && !isTeachSTEM) return <Navigate to="/teacher" replace />
+  if (role === 'program_staff' && !isProgramStaff) return <Navigate to="/teacher" replace />
   return children
 }
 
@@ -76,6 +82,11 @@ function AppRoutes() {
         <Route path="/teach-stem/321/:id" element={<RequireAuth role="teach_stem"><ThreeTwoOneResponses /></RequireAuth>} />
         <Route path="/teach-stem/student-reflections" element={<RequireAuth role="teach_stem"><StudentReflectionList /></RequireAuth>} />
         <Route path="/teach-stem/student-reflections/:id" element={<RequireAuth role="teach_stem"><StudentReflectionResponses /></RequireAuth>} />
+        <Route path="/program-staff" element={<RequireAuth role="program_staff"><StaffDashboard /></RequireAuth>} />
+        <Route path="/program-staff/profile" element={<RequireAuth role="program_staff"><StaffProfilePage /></RequireAuth>} />
+        <Route path="/program-staff/project-reflection" element={<RequireAuth role="program_staff"><StaffProjectReflectionSurvey /></RequireAuth>} />
+        <Route path="/program-staff/project-topics" element={<RequireAuth role="program_staff"><StaffProjectTopics /></RequireAuth>} />
+        <Route path="/program-staff/project-starter" element={<RequireAuth role="program_staff"><StaffProjectStarterBuilder /></RequireAuth>} />
         <Route path="/teacher/survey" element={<RequireAuth role="teacher"><TeacherSurvey /></RequireAuth>} />
         <Route path="/teacher/activity/create" element={<RequireAuth role="teach_stem"><ActivityBuilder /></RequireAuth>} />
         <Route path="/teacher/activity/:id/edit" element={<RequireAuth role="teach_stem"><ActivityBuilder /></RequireAuth>} />

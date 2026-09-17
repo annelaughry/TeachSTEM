@@ -22,6 +22,8 @@ from core.models import (
     TeachSTEMTaskCompletion, ProjectTopicSubmission, ProjectStarter, TopicSuggestion, TStemSurveyResponse, TeacherSurveyResponse,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
     StudentReflectionAssignment, StudentReflectionResponse,
+    StaffProfile, StaffTask, StaffTaskCompletion, StaffProjectTopicSubmission, StaffProjectStarter,
+    StaffProjectReflection, StaffReflectionFile,
 )
 from core.views import _is_teacher, _save_sections_and_standards, _activity_completed_by
 from .pdf import render_activity_pdf
@@ -35,6 +37,8 @@ from .serializers import (
     ThreeTwoOneAssignmentSerializer, ThreeTwoOneResponseSerializer,
     StudentReflectionAssignmentSerializer, StudentReflectionResponseSerializer,
     TeacherSurveyResponseSerializer,
+    StaffProfileSerializer, StaffTaskSerializer, StaffProjectTopicSubmissionSerializer,
+    StaffProjectStarterSerializer, StaffProjectReflectionSerializer,
 )
 
 
@@ -77,7 +81,11 @@ def api_register_teacher(request):
         first_name=first, last_name=last,
     )
     is_teach_stem = request.data.get('is_teach_stem', False)
-    TeacherProfile.objects.create(user=user, is_approved=False, is_teach_stem=bool(is_teach_stem))
+    is_program_staff = request.data.get('is_program_staff', False)
+    TeacherProfile.objects.create(
+        user=user, is_approved=False,
+        is_teach_stem=bool(is_teach_stem), is_program_staff=bool(is_program_staff),
+    )
     return Response({'message': 'Account created. Awaiting admin approval.'}, status=201)
 
 
@@ -1022,18 +1030,26 @@ def api_admin_dashboard(request):
     pending_teach_stem = TeacherProfile.objects.filter(
         is_approved=True, is_teach_stem=True, teach_stem_approved=False
     ).select_related('user')
+    pending_program_staff = TeacherProfile.objects.filter(
+        is_approved=True, is_program_staff=True, program_staff_approved=False
+    ).select_related('user')
     pending_activities = Activity.objects.filter(status='pending').select_related('created_by').prefetch_related('grade_levels')
     return Response({
         'pending_teachers': [
             {'id': tp.user.id, 'name': tp.user.get_full_name() or tp.user.username,
              'username': tp.user.username, 'email': tp.user.email,
-             'is_teach_stem': tp.is_teach_stem}
+             'is_teach_stem': tp.is_teach_stem, 'is_program_staff': tp.is_program_staff}
             for tp in pending_teachers
         ],
         'pending_teach_stem': [
             {'id': tp.user.id, 'name': tp.user.get_full_name() or tp.user.username,
              'username': tp.user.username, 'email': tp.user.email}
             for tp in pending_teach_stem
+        ],
+        'pending_program_staff': [
+            {'id': tp.user.id, 'name': tp.user.get_full_name() or tp.user.username,
+             'username': tp.user.username, 'email': tp.user.email}
+            for tp in pending_program_staff
         ],
         'pending_activities': ActivityListSerializer(pending_activities, many=True).data,
     })
@@ -1056,6 +1072,14 @@ def api_admin_action(request):
         try:
             tp = TeacherProfile.objects.get(user_id=request.data.get('user_id'))
             tp.teach_stem_approved = (action == 'approve_teach_stem')
+            tp.save()
+            return Response({'ok': True})
+        except TeacherProfile.DoesNotExist:
+            return Response({'error': 'Not found.'}, status=404)
+    elif action in ('approve_program_staff', 'reject_program_staff'):
+        try:
+            tp = TeacherProfile.objects.get(user_id=request.data.get('user_id'))
+            tp.program_staff_approved = (action == 'approve_program_staff')
             tp.save()
             return Response({'ok': True})
         except TeacherProfile.DoesNotExist:
@@ -1345,6 +1369,315 @@ def api_admin_project_starter_feedback(request, pk):
     return Response(ProjectStarterSerializer(starter).data)
 
 
+# ── Staff ─────────────────────────────────────────────────────────────────────
+
+def _program_staff_required(request):
+    if not request.user.is_authenticated:
+        return False
+    if request.user.is_staff or request.user.is_superuser:
+        return True
+    return hasattr(request.user, 'teacher_profile') and request.user.teacher_profile.program_staff_approved
+
+
+@api_view(['GET', 'POST'])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
+def api_staff_project_reflections(request):
+    if not _program_staff_required(request):
+        return Response({'error': 'Staff access required.'}, status=403)
+
+    if request.method == 'GET':
+        submissions = StaffProjectReflection.objects.filter(teacher=request.user).prefetch_related('files')
+        return Response(StaffProjectReflectionSerializer(submissions, many=True).data)
+
+    project_name = request.data.get('project_name', '').strip()
+    if not project_name:
+        return Response({'error': 'Please tell us which project you implemented.'}, status=400)
+
+    future_plans_raw = request.data.get('future_plans', '[]')
+    try:
+        future_plans = json.loads(future_plans_raw) if isinstance(future_plans_raw, str) else list(future_plans_raw)
+    except Exception:
+        future_plans = []
+
+    reflection = StaffProjectReflection.objects.create(
+        teacher=request.user,
+        project_name=project_name,
+        success_rating=request.data.get('success_rating', ''),
+        engagement=request.data.get('engagement', ''),
+        evidence_of_learning=request.data.get('evidence_of_learning', ''),
+        improvements=request.data.get('improvements', ''),
+        future_plans=future_plans,
+        additional_comments=request.data.get('additional_comments', ''),
+    )
+
+    for f in request.FILES.getlist('student_work_files'):
+        StaffReflectionFile.objects.create(reflection=reflection, kind='student_work', file=f, label=f.name)
+    for f in request.FILES.getlist('supporting_material_files'):
+        StaffReflectionFile.objects.create(reflection=reflection, kind='supporting_material', file=f, label=f.name)
+
+    return Response(StaffProjectReflectionSerializer(reflection).data, status=201)
+
+
+@api_view(['GET', 'POST'])
+def api_staff_profile(request):
+    if not _program_staff_required(request):
+        return Response({'error': 'Staff access required.'}, status=403)
+
+    profile, _ = StaffProfile.objects.get_or_create(teacher=request.user)
+
+    if request.method == 'GET':
+        return Response(StaffProfileSerializer(profile).data)
+
+    serializer = StaffProfileSerializer(profile, data=request.data, partial=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save()
+    return Response(serializer.data)
+
+
+@api_view(['GET', 'POST'])
+def api_staff_tasks(request):
+    is_admin = request.user.is_staff or request.user.is_superuser
+
+    if request.method == 'GET':
+        if not (_program_staff_required(request) or is_admin):
+            return Response({'error': 'Access required.'}, status=403)
+        tasks = StaffTask.objects.prefetch_related('completions').all()
+        return Response(StaffTaskSerializer(tasks, many=True, context={'request': request}).data)
+
+    if not is_admin:
+        return Response({'error': 'Admin access required.'}, status=403)
+    serializer = StaffTaskSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save(created_by=request.user)
+    return Response(serializer.data, status=201)
+
+
+@api_view(['PUT', 'DELETE'])
+def api_staff_task_detail(request, pk):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    try:
+        task = StaffTask.objects.get(pk=pk)
+    except StaffTask.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+    if request.method == 'DELETE':
+        task.delete()
+        return Response({'ok': True})
+
+    serializer = StaffTaskSerializer(task, data=request.data, partial=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save()
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+def api_staff_task_complete(request, pk):
+    if not _program_staff_required(request):
+        return Response({'error': 'Staff access required.'}, status=403)
+    try:
+        task = StaffTask.objects.get(pk=pk)
+    except StaffTask.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+    completion, created = StaffTaskCompletion.objects.get_or_create(
+        teacher=request.user, task=task
+    )
+    if not created:
+        completion.delete()
+        return Response({'completed': False})
+    return Response({'completed': True})
+
+
+@api_view(['GET', 'POST'])
+def api_staff_project_topics(request):
+    if not _program_staff_required(request):
+        return Response({'error': 'Staff access required.'}, status=403)
+
+    if request.method == 'GET':
+        submissions = StaffProjectTopicSubmission.objects.filter(teacher=request.user)
+        return Response(StaffProjectTopicSubmissionSerializer(submissions, many=True).data)
+
+    serializer = StaffProjectTopicSubmissionSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save(teacher=request.user)
+    return Response(serializer.data, status=201)
+
+
+@api_view(['PUT'])
+def api_staff_project_topic_update(request, pk):
+    """Edit a plan the teacher already saved — including ones already submitted or reviewed.
+    Any edit pulls it back to 'draft' so it must be resubmitted before an admin sees the changes."""
+    if not _program_staff_required(request):
+        return Response({'error': 'Staff access required.'}, status=403)
+    try:
+        sub = StaffProjectTopicSubmission.objects.get(pk=pk, teacher=request.user)
+    except StaffProjectTopicSubmission.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    serializer = StaffProjectTopicSubmissionSerializer(sub, data=request.data, partial=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save(status='draft')
+    return Response(StaffProjectTopicSubmissionSerializer(sub).data)
+
+
+@api_view(['POST'])
+def api_staff_project_topic_submit(request, pk):
+    if not _program_staff_required(request):
+        return Response({'error': 'Staff access required.'}, status=403)
+    try:
+        sub = StaffProjectTopicSubmission.objects.get(pk=pk, teacher=request.user)
+    except StaffProjectTopicSubmission.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    if sub.status != 'draft':
+        return Response({'error': 'Already submitted.'}, status=400)
+    questions = [q for q in (sub.research_questions or []) if q.strip()]
+    if len(questions) < 3:
+        return Response({'error': 'At least 3 research questions are required.'}, status=400)
+    sub.status = 'submitted'
+    sub.save()
+    return Response(StaffProjectTopicSubmissionSerializer(sub).data)
+
+
+@api_view(['GET'])
+def api_admin_staff_project_topics(request):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    subs = StaffProjectTopicSubmission.objects.filter(status__in=['submitted', 'reviewed']).select_related('teacher', 'reviewed_by')
+    return Response(StaffProjectTopicSubmissionSerializer(subs, many=True).data)
+
+
+@api_view(['POST'])
+def api_admin_staff_project_topic_feedback(request, pk):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    try:
+        sub = StaffProjectTopicSubmission.objects.get(pk=pk)
+    except StaffProjectTopicSubmission.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    from django.utils import timezone
+    sub.admin_feedback = request.data.get('feedback', '').strip()
+    sub.reviewed_by = request.user
+    sub.reviewed_at = timezone.now()
+    sub.status = 'reviewed'
+    sub.save()
+    return Response(StaffProjectTopicSubmissionSerializer(sub).data)
+
+
+@api_view(['GET', 'POST'])
+def api_staff_project_starters(request):
+    if not _program_staff_required(request):
+        return Response({'error': 'Staff access required.'}, status=403)
+
+    if request.method == 'GET':
+        submissions = StaffProjectStarter.objects.filter(teacher=request.user)
+        return Response(StaffProjectStarterSerializer(submissions, many=True).data)
+
+    serializer = StaffProjectStarterSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save(teacher=request.user)
+    return Response(serializer.data, status=201)
+
+
+@api_view(['PUT'])
+def api_staff_project_starter_update(request, pk):
+    if not _program_staff_required(request):
+        return Response({'error': 'Staff access required.'}, status=403)
+    try:
+        starter = StaffProjectStarter.objects.get(pk=pk, teacher=request.user)
+    except StaffProjectStarter.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    if starter.status != 'draft':
+        return Response({'error': 'Only drafts can be edited.'}, status=400)
+    serializer = StaffProjectStarterSerializer(starter, data=request.data, partial=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save()
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+def api_staff_project_starter_submit(request, pk):
+    if not _program_staff_required(request):
+        return Response({'error': 'Staff access required.'}, status=403)
+    try:
+        starter = StaffProjectStarter.objects.get(pk=pk, teacher=request.user)
+    except StaffProjectStarter.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    if starter.status != 'draft':
+        return Response({'error': 'Already submitted.'}, status=400)
+    if not starter.title.strip():
+        return Response({'error': 'A title is required to submit for review.'}, status=400)
+    starter.status = 'submitted'
+    starter.save()
+    return Response(StaffProjectStarterSerializer(starter).data)
+
+
+@api_view(['GET'])
+def api_admin_staff_project_starters(request):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    starters = StaffProjectStarter.objects.filter(status__in=['submitted', 'reviewed']).select_related('teacher', 'reviewed_by')
+    return Response(StaffProjectStarterSerializer(starters, many=True).data)
+
+
+@api_view(['POST'])
+def api_admin_staff_project_starter_feedback(request, pk):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    try:
+        starter = StaffProjectStarter.objects.get(pk=pk)
+    except StaffProjectStarter.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    from django.utils import timezone
+    starter.admin_feedback = request.data.get('feedback', '').strip()
+    starter.reviewed_by = request.user
+    starter.reviewed_at = timezone.now()
+    starter.status = 'reviewed'
+    starter.save()
+    return Response(StaffProjectStarterSerializer(starter).data)
+
+
+@api_view(['GET'])
+def api_admin_staff_profile(request, user_id):
+    """View a Staff member's profile info (name, school, subject/role, etc.)."""
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    try:
+        tp = TeacherProfile.objects.select_related('user').get(user_id=user_id)
+    except TeacherProfile.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    if not tp.program_staff_approved:
+        return Response({'error': 'This teacher is not a Staff member.'}, status=400)
+
+    profile = StaffProfile.objects.filter(teacher_id=user_id).first()
+    data = StaffProfileSerializer(profile).data if profile else {
+        'id': None, 'name': '', 'school': '', 'subject_taught': '',
+        'num_students': None, 'years_teaching': None, 'email': '',
+    }
+    data['has_profile'] = profile is not None
+    return Response(data)
+
+
+@api_view(['POST'])
+def api_admin_toggle_program_staff(request, user_id):
+    """Toggle a teacher's Staff approved status."""
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    try:
+        tp = TeacherProfile.objects.get(user_id=user_id)
+        tp.program_staff_approved = not tp.program_staff_approved
+        tp.save()
+        return Response({'program_staff_approved': tp.program_staff_approved})
+    except TeacherProfile.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+
 @api_view(['GET', 'POST'])
 def api_topic_suggestions(request):
     """Approved teachers submit a topic idea from the teaching dashboard, for admins to
@@ -1441,6 +1774,7 @@ def api_admin_all_teachers(request):
             'username': tp.user.username,
             'email': tp.user.email,
             'teach_stem_approved': tp.teach_stem_approved,
+            'program_staff_approved': tp.program_staff_approved,
         }
         for tp in qs.order_by('user__last_name', 'user__first_name')
     ])

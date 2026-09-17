@@ -8,18 +8,21 @@ from core.models import (
     ProjectTopicSubmission, ProjectStarter, TopicSuggestion, TStemSurveyResponse, TeacherSurveyResponse,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
     StudentReflectionAssignment, StudentReflectionResponse,
+    StaffTask, StaffTaskCompletion, StaffProjectTopicSubmission, StaffProjectStarter,
+    StaffProjectReflection, StaffReflectionFile, StaffProfile,
 )
 
 
 class UserSerializer(serializers.ModelSerializer):
-    is_teacher    = serializers.SerializerMethodField()
-    is_pending    = serializers.SerializerMethodField()
-    is_teach_stem = serializers.SerializerMethodField()
+    is_teacher      = serializers.SerializerMethodField()
+    is_pending      = serializers.SerializerMethodField()
+    is_teach_stem   = serializers.SerializerMethodField()
+    is_program_staff = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'username', 'first_name', 'last_name', 'email',
-                  'is_staff', 'is_superuser', 'is_teacher', 'is_pending', 'is_teach_stem']
+                  'is_staff', 'is_superuser', 'is_teacher', 'is_pending', 'is_teach_stem', 'is_program_staff']
 
     def get_is_teacher(self, obj):
         if obj.is_staff or obj.is_superuser:
@@ -31,6 +34,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_is_teach_stem(self, obj):
         return hasattr(obj, 'teacher_profile') and obj.teacher_profile.teach_stem_approved
+
+    def get_is_program_staff(self, obj):
+        return hasattr(obj, 'teacher_profile') and obj.teacher_profile.program_staff_approved
 
 
 class GradeLevelSerializer(serializers.ModelSerializer):
@@ -325,6 +331,92 @@ class TeachSTEMTaskSerializer(serializers.ModelSerializer):
 class TeachSTEMProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeachSTEMProfile
+        fields = ['id', 'name', 'school', 'subject_taught', 'num_students', 'years_teaching', 'email']
+
+
+class StaffReflectionFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StaffReflectionFile
+        fields = ['id', 'kind', 'file', 'label', 'uploaded_at']
+        read_only_fields = ['id', 'uploaded_at']
+
+
+class StaffProjectReflectionSerializer(serializers.ModelSerializer):
+    files = StaffReflectionFileSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = StaffProjectReflection
+        fields = [
+            'id', 'project_name', 'success_rating', 'engagement',
+            'evidence_of_learning', 'improvements', 'future_plans',
+            'additional_comments', 'files', 'submitted_at',
+        ]
+        read_only_fields = ['id', 'files', 'submitted_at']
+
+
+class StaffProjectTopicSubmissionSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.SerializerMethodField()
+    reviewed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StaffProjectTopicSubmission
+        fields = [
+            'id', 'overview', 'classroom_name', 'grade_level', 'num_students',
+            'standards', 'background_concepts', 'research_questions', 'materials',
+            'status', 'admin_feedback', 'reviewed_by_name', 'reviewed_at',
+            'submitted_at', 'teacher_name',
+        ]
+        read_only_fields = ['id', 'submitted_at', 'status', 'admin_feedback', 'reviewed_by_name', 'reviewed_at', 'teacher_name']
+
+    def get_teacher_name(self, obj):
+        return obj.teacher.get_full_name() or obj.teacher.username
+
+    def get_reviewed_by_name(self, obj):
+        if obj.reviewed_by:
+            return obj.reviewed_by.get_full_name() or obj.reviewed_by.username
+        return None
+
+
+class StaffProjectStarterSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.SerializerMethodField()
+    reviewed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StaffProjectStarter
+        fields = [
+            'id', 'title', 'overview', 'competencies', 'steps', 'tips',
+            'status', 'admin_feedback', 'reviewed_by_name', 'reviewed_at',
+            'submitted_at', 'teacher_name',
+        ]
+        read_only_fields = ['id', 'submitted_at', 'status', 'admin_feedback', 'reviewed_by_name', 'reviewed_at', 'teacher_name']
+
+    def get_teacher_name(self, obj):
+        return obj.teacher.get_full_name() or obj.teacher.username
+
+    def get_reviewed_by_name(self, obj):
+        if obj.reviewed_by:
+            return obj.reviewed_by.get_full_name() or obj.reviewed_by.username
+        return None
+
+
+class StaffTaskSerializer(serializers.ModelSerializer):
+    completed = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StaffTask
+        fields = ['id', 'title', 'description', 'due_date', 'created_at', 'completed']
+        read_only_fields = ['id', 'created_at', 'completed']
+
+    def get_completed(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.completions.filter(teacher=request.user).exists()
+
+
+class StaffProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StaffProfile
         fields = ['id', 'name', 'school', 'subject_taught', 'num_students', 'years_teaching', 'email']
 
 

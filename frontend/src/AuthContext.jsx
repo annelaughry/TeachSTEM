@@ -33,13 +33,14 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
-  const isTeacher   = user && (user.is_staff || user.is_superuser || user.is_teacher)
-  const isAdmin     = user && (user.is_staff || user.is_superuser)
-  const isStudent   = user && !isTeacher
-  const isTeachSTEM = user && (user.is_staff || user.is_superuser || user.is_teach_stem)
+  const isTeacher      = user && (user.is_staff || user.is_superuser || user.is_teacher)
+  const isAdmin        = user && (user.is_staff || user.is_superuser)
+  const isStudent      = user && !isTeacher
+  const isTeachSTEM    = user && (user.is_staff || user.is_superuser || user.is_teach_stem)
+  const isProgramStaff = user && (user.is_staff || user.is_superuser || user.is_program_staff)
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isTeacher, isAdmin, isStudent, isTeachSTEM }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isTeacher, isAdmin, isStudent, isTeachSTEM, isProgramStaff }}>
       {children}
     </AuthContext.Provider>
   )

@@ -288,6 +288,8 @@ class TeacherProfile(models.Model):
     is_approved = models.BooleanField(default=False)
     is_teach_stem = models.BooleanField(default=False)
     teach_stem_approved = models.BooleanField(default=False)
+    is_program_staff = models.BooleanField(default=False)
+    program_staff_approved = models.BooleanField(default=False)
 
     def __str__(self):
         status = "approved" if self.is_approved else "pending"
@@ -434,6 +436,159 @@ class TeachSTEMProfile(models.Model):
 
     def __str__(self):
         return f"{self.name or self.teacher.username} — Teach STEM Profile"
+
+
+class StaffTask(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='staff_tasks')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['due_date', 'title']
+
+    def __str__(self):
+        return self.title
+
+
+class StaffProjectTopicSubmission(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted for Review'),
+        ('reviewed', 'Reviewed'),
+    ]
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='staff_project_topic_submissions')
+    overview = models.TextField(blank=True, help_text='Project goal/overview.')
+    classroom_name = models.CharField(max_length=200, blank=True)
+    grade_level = models.CharField(max_length=100, blank=True)
+    num_students = models.CharField(max_length=50, blank=True)
+    standards = models.TextField(blank=True)
+    background_concepts = models.TextField(blank=True)
+    research_questions = models.JSONField(default=list, blank=True)
+    materials = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    admin_feedback = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name='reviewed_staff_project_topics'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f"{self.teacher.username} — {self.classroom_name or 'unnamed'} ({self.submitted_at.date()})"
+
+
+class StaffProjectStarter(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted for Review'),
+        ('reviewed', 'Reviewed'),
+    ]
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='staff_project_starters')
+    title = models.CharField(max_length=200, blank=True)
+    overview = models.TextField(blank=True)
+    competencies = models.JSONField(default=list, blank=True, help_text='[{"skill": "", "description": ""}]')
+    steps = models.JSONField(default=list, blank=True, help_text='[{"heading": "", "items": [""]}]')
+    tips = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    admin_feedback = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name='reviewed_staff_project_starters'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f"{self.teacher.username} — {self.title or 'untitled'} ({self.submitted_at.date()})"
+
+
+class StaffProjectReflection(models.Model):
+    SUCCESS_CHOICES = [
+        ('very_successful', 'Very Successful'),
+        ('successful', 'Successful'),
+        ('somewhat_successful', 'Somewhat Successful'),
+        ('not_very_successful', 'Not Very Successful'),
+        ('unsuccessful', 'Unsuccessful'),
+    ]
+    ENGAGEMENT_CHOICES = [
+        ('highly_engaged', 'Highly engaged throughout'),
+        ('mostly_engaged', 'Mostly engaged'),
+        ('mixed', 'Mixed engagement'),
+        ('mostly_disengaged', 'Mostly disengaged'),
+        ('not_engaged', 'Not engaged'),
+    ]
+    FUTURE_PLAN_CHOICES = [
+        ('teach_again_no_changes', 'I plan to teach it again without major changes.'),
+        ('revise_and_teach_again', 'I plan to revise and teach it again.'),
+        ('expand_project', 'I plan to expand the project.'),
+        ('collaborate', 'I plan to collaborate with another teacher.'),
+        ('not_use_again', 'I do not plan to use this project again.'),
+    ]
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='staff_project_reflections')
+    project_name = models.CharField(max_length=255, help_text='Which project did you implement?')
+    success_rating = models.CharField(max_length=30, choices=SUCCESS_CHOICES, blank=True)
+    engagement = models.CharField(max_length=30, choices=ENGAGEMENT_CHOICES, blank=True)
+    evidence_of_learning = models.TextField(blank=True, help_text='Evidence that students met the learning goals.')
+    improvements = models.TextField(blank=True, help_text='What would you change or improve next time?')
+    future_plans = models.JSONField(default=list, blank=True)
+    additional_comments = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f"{self.teacher.username} — {self.project_name} ({self.submitted_at.date()})"
+
+
+class StaffReflectionFile(models.Model):
+    KIND_CHOICES = [
+        ('student_work', 'Student Work Example'),
+        ('supporting_material', 'Supporting Material'),
+    ]
+    reflection = models.ForeignKey(StaffProjectReflection, on_delete=models.CASCADE, related_name='files')
+    kind = models.CharField(max_length=25, choices=KIND_CHOICES)
+    file = models.FileField(upload_to='staff_project_reflections/')
+    label = models.CharField(max_length=255, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['uploaded_at']
+
+    def __str__(self):
+        return self.label or self.file.name
+
+
+class StaffTaskCompletion(models.Model):
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='staff_task_completions')
+    task = models.ForeignKey(StaffTask, on_delete=models.CASCADE, related_name='completions')
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('teacher', 'task')
+
+    def __str__(self):
+        return f"{self.teacher.username} completed {self.task.title}"
+
+
+class StaffProfile(models.Model):
+    teacher = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile')
+    name = models.CharField(max_length=200, blank=True)
+    school = models.CharField(max_length=200, blank=True)
+    subject_taught = models.CharField(max_length=200, blank=True)
+    num_students = models.PositiveIntegerField(null=True, blank=True)
+    years_teaching = models.PositiveIntegerField(null=True, blank=True)
+    email = models.EmailField(blank=True)
+
+    def __str__(self):
+        return f"{self.name or self.teacher.username} — Staff Profile"
 
 
 class Module(models.Model):

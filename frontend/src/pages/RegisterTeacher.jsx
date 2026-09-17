@@ -6,6 +6,7 @@ export default function RegisterTeacher() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ first_name: '', last_name: '', username: '', password: '' })
   const [isTeachSTEM, setIsTeachSTEM] = useState(false)
+  const [isProgramStaff, setIsProgramStaff] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -16,7 +17,7 @@ export default function RegisterTeacher() {
     setError('')
     setLoading(true)
     try {
-      await api.post('auth/register/teacher/', { ...form, is_teach_stem: isTeachSTEM })
+      await api.post('auth/register/teacher/', { ...form, is_teach_stem: isTeachSTEM, is_program_staff: isProgramStaff })
       navigate('/pending')
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed.')
@@ -67,6 +68,25 @@ export default function RegisterTeacher() {
                   </div>
                   <div style={{ fontSize: '0.82rem', color: 'var(--teal-dark)', marginTop: '0.2rem', opacity: 0.85 }}>
                     Teach STEM membership will be verified separately by an admin after your account is approved.
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <div style={{ margin: '0.25rem 0 1.25rem', padding: '1rem', background: 'var(--yellow-light)', border: '2px solid var(--yellow)', borderRadius: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={isProgramStaff}
+                  onChange={e => setIsProgramStaff(e.target.checked)}
+                  style={{ accentColor: 'var(--yellow)', width: 18, height: 18, marginTop: 2, flexShrink: 0 }}
+                />
+                <div>
+                  <div style={{ fontWeight: 800, color: 'var(--yellow-dark)', fontSize: '0.95rem' }}>
+                    I am a Staff member
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--yellow-dark)', marginTop: '0.2rem', opacity: 0.85 }}>
+                    Staff membership will be verified separately by an admin after your account is approved.
                   </div>
                 </div>
               </label>
