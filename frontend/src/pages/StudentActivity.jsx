@@ -140,6 +140,177 @@ function VideoRecorder({ promptId, existingUrl, onSaved }) {
   )
 }
 
+// ── Drawing canvas sub-component ────────────────────────────────────────────
+
+const DRAWING_COLORS = ['#2D2D2D', '#F2385A', '#3CC4C4', '#F7A826', '#2e7d32', '#1a5fb4']
+const PEN_WIDTHS = [{ label: 'Thin', value: 3 }, { label: 'Thick', value: 9 }]
+const CANVAS_W = 640
+const CANVAS_H = 400
+
+function DrawingCanvas({ promptId, existingUrl, onSaved }) {
+  const canvasRef = useRef(null)
+  const drawing = useRef(false)
+  const history = useRef([])   // stack of ImageData snapshots for undo
+  const [color, setColor] = useState(DRAWING_COLORS[0])
+  const [penWidth, setPenWidth] = useState(PEN_WIDTHS[0].value)
+  const [canUndo, setCanUndo] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [err, setErr] = useState('')
+
+  const ctx = () => canvasRef.current?.getContext('2d')
+
+  useEffect(() => {
+    const c = canvasRef.current
+    if (!c) return
+    const context = c.getContext('2d')
+    context.fillStyle = '#fff'
+    context.fillRect(0, 0, c.width, c.height)
+    if (existingUrl) {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => context.drawImage(img, 0, 0, c.width, c.height)
+      img.src = existingUrl
+    }
+  }, [existingUrl])
+
+  const pushHistory = () => {
+    const c = canvasRef.current
+    if (!c) return
+    history.current.push(ctx().getImageData(0, 0, c.width, c.height))
+    if (history.current.length > 30) history.current.shift()
+    setCanUndo(true)
+  }
+
+  const pointerPos = (e) => {
+    const c = canvasRef.current
+    const rect = c.getBoundingClientRect()
+    const point = e.touches ? e.touches[0] : e
+    return {
+      x: (point.clientX - rect.left) * (c.width / rect.width),
+      y: (point.clientY - rect.top) * (c.height / rect.height),
+    }
+  }
+
+  const startDraw = (e) => {
+    e.preventDefault()
+    pushHistory()
+    drawing.current = true
+    const { x, y } = pointerPos(e)
+    const context = ctx()
+    context.strokeStyle = color
+    context.lineWidth = penWidth
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.beginPath()
+    context.moveTo(x, y)
+    setSaved(false)
+  }
+
+  const moveDraw = (e) => {
+    if (!drawing.current) return
+    e.preventDefault()
+    const { x, y } = pointerPos(e)
+    const context = ctx()
+    context.lineTo(x, y)
+    context.stroke()
+  }
+
+  const stopDraw = () => { drawing.current = false }
+
+  const undo = () => {
+    const c = canvasRef.current
+    const snapshot = history.current.pop()
+    if (snapshot) ctx().putImageData(snapshot, 0, 0)
+    setCanUndo(history.current.length > 0)
+    setSaved(false)
+  }
+
+  const clear = () => {
+    pushHistory()
+    const c = canvasRef.current
+    const context = ctx()
+    context.fillStyle = '#fff'
+    context.fillRect(0, 0, c.width, c.height)
+    setSaved(false)
+  }
+
+  const save = () => {
+    const c = canvasRef.current
+    setErr('')
+    setSaving(true)
+    c.toBlob(async (blob) => {
+      if (!blob) { setErr('Could not save drawing.'); setSaving(false); return }
+      try {
+        const fd = new FormData()
+        fd.append('response_drawing', blob, `response_${promptId}.png`)
+        await api.post(`responses/${promptId}/save/`, fd)
+        setSaved(true)
+        onSaved?.()
+      } catch {
+        setErr('Upload failed. Please try again.')
+      } finally {
+        setSaving(false)
+      }
+    }, 'image/png')
+  }
+
+  return (
+    <div style={{ marginTop: '0.75rem' }}>
+      {err && <div className="form-error" style={{ marginBottom: '0.5rem', fontSize: '0.85rem' }}>{err}</div>}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.3rem' }}>
+          {DRAWING_COLORS.map(c => (
+            <button key={c} type="button" onClick={() => setColor(c)} aria-label={`Color ${c}`}
+              style={{
+                width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer',
+                border: color === c ? '3px solid var(--text)' : '2px solid #fff',
+                boxShadow: '0 0 0 1px var(--border)', padding: 0,
+              }} />
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: '0.3rem' }}>
+          {PEN_WIDTHS.map(w => (
+            <button key={w.value} type="button" onClick={() => setPenWidth(w.value)}
+              className="btn btn--sm"
+              style={{
+                background: penWidth === w.value ? 'var(--teal)' : '#fff',
+                color: penWidth === w.value ? '#fff' : 'var(--text-muted)',
+                border: '1px solid var(--teal)', fontWeight: 700,
+              }}>
+              {w.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_W}
+        height={CANVAS_H}
+        style={{ width: '100%', maxWidth: CANVAS_W, height: 'auto', aspectRatio: `${CANVAS_W} / ${CANVAS_H}`, borderRadius: 8, border: '2px solid var(--teal)', background: '#fff', touchAction: 'none', cursor: 'crosshair', display: 'block' }}
+        onMouseDown={startDraw}
+        onMouseMove={moveDraw}
+        onMouseUp={stopDraw}
+        onMouseLeave={stopDraw}
+        onTouchStart={startDraw}
+        onTouchMove={moveDraw}
+        onTouchEnd={stopDraw}
+      />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+        <button type="button" onClick={undo} className="btn btn--ghost btn--sm" disabled={!canUndo}>Undo</button>
+        <button type="button" onClick={clear} className="btn btn--ghost btn--sm">Clear</button>
+        <button type="button" onClick={save} className="btn btn--teal btn--sm" disabled={saving}>
+          {saving ? 'Saving…' : 'Save Drawing'}
+        </button>
+        {saved && <span style={{ color: '#2e7d32', fontWeight: 800, fontSize: '0.85rem' }}>Saved!</span>}
+      </div>
+    </div>
+  )
+}
+
 // ── Data table sub-component ─────────────────────────────────────────────────
 
 function DataTable({ tableHeaders, initialData, onChange }) {
@@ -438,6 +609,14 @@ export default function StudentActivity() {
                       tableHeaders={prompt.table_headers || []}
                       initialData={tableDrafts[prompt.id] || existing?.response_table || null}
                       onChange={data => setTableDrafts(prev => ({ ...prev, [prompt.id]: data }))}
+                    />
+                  )}
+
+                  {prompt.response_type === 'drawing' && (
+                    <DrawingCanvas
+                      promptId={prompt.id}
+                      existingUrl={existing?.response_drawing || null}
+                      onSaved={() => {}}
                     />
                   )}
                 </div>

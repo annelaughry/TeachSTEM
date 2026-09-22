@@ -477,7 +477,7 @@ export default function ActivityBuilder() {
                           <div style={{ marginTop: '0.5rem' }}>
                             <div style={{ fontSize: '0.73rem', fontWeight: 800, color: m.tagTxt, marginBottom: '0.3rem' }}>Response type:</div>
                             <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                              {[['text','Written Response'],['video','Video Recording'],['table','Data Table']].map(([val, lbl]) => (
+                              {[['text','Written Response'],['video','Video Recording'],['table','Data Table'],['drawing','Drawing Canvas']].map(([val, lbl]) => (
                                 <button key={val} type="button" onClick={() => updatePrompt(sIdx, pIdx, 'response_type', val)}
                                   style={{ padding: '0.25rem 0.65rem', borderRadius: 8, border: `2px solid ${m.border}`, fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
                                     background: prompt.response_type === val ? m.border : '#fff',

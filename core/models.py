@@ -158,6 +158,7 @@ class ActivityPrompt(models.Model):
         ('text', 'Text Response'),
         ('video', 'Video Response'),
         ('table', 'Data Table'),
+        ('drawing', 'Drawing Canvas'),
     ]
     section = models.ForeignKey(ActivitySection, on_delete=models.CASCADE, related_name='prompts')
     text = models.TextField(blank=True)
@@ -180,6 +181,7 @@ class StudentResponse(models.Model):
     response_text = models.TextField(blank=True)
     response_video = models.FileField(upload_to='student_videos/', blank=True, null=True)
     response_table = models.JSONField(null=True, blank=True)
+    response_drawing = models.ImageField(upload_to='student_drawings/', blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

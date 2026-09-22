@@ -258,6 +258,12 @@ export default function TeacherResponses() {
                                         ) : <p style={{ color: '#2D2D2D', fontStyle: 'italic', fontSize: '0.88rem' }}>No table submitted.</p>
                                       )}
 
+                                      {prompt.response_type === 'drawing' && (
+                                        resp.response_drawing
+                                          ? <img src={resp.response_drawing} alt="Student drawing" style={{ maxWidth: '100%', maxHeight: 320, borderRadius: 8, border: '2px solid var(--teal)', display: 'block', background: '#fff' }} />
+                                          : <p style={{ color: '#2D2D2D', fontStyle: 'italic', fontSize: '0.88rem' }}>No drawing submitted.</p>
+                                      )}
+
                                       {/* Feedback */}
                                       <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
                                         <textarea className="form-input" rows={2}

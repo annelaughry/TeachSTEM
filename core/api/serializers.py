@@ -127,7 +127,7 @@ class StudentResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentResponse
         fields = ['id', 'prompt', 'response_text', 'response_video',
-                  'response_table', 'updated_at', 'feedback_text']
+                  'response_table', 'response_drawing', 'updated_at', 'feedback_text']
 
     def get_feedback_text(self, obj):
         if hasattr(obj, 'feedback'):
@@ -525,7 +525,7 @@ class TeacherStudentResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentResponse
         fields = ['id', 'student_name', 'response_text', 'response_video',
-                  'response_table', 'updated_at', 'feedback']
+                  'response_table', 'response_drawing', 'updated_at', 'feedback']
 
     def get_student_name(self, obj):
         return obj.student.get_full_name() or obj.student.username

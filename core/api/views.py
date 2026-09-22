@@ -856,6 +856,14 @@ def api_save_response(request, prompt_pk):
                 defaults={'response_table': table_data},
             )
             return Response(StudentResponseSerializer(obj).data)
+    elif prompt.response_type == 'drawing':
+        drawing_file = request.FILES.get('response_drawing')
+        if drawing_file:
+            obj, _ = StudentResponse.objects.update_or_create(
+                student=request.user, prompt=prompt,
+                defaults={'response_drawing': drawing_file, 'response_text': ''},
+            )
+            return Response(StudentResponseSerializer(obj).data)
     else:
         text = request.data.get('response_text', '')
         obj, _ = StudentResponse.objects.update_or_create(
