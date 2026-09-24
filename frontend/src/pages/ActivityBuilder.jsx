@@ -5,7 +5,7 @@ import api from '../api'
 
 let _gk = 0
 const nextKey = () => ++_gk
-const mkPrompt = (overrides = {}) => ({ _k: nextKey(), text: '', prompt_type: 'student', response_type: 'text', table_headers: [], video_url: '', ...overrides })
+const mkPrompt = (overrides = {}) => ({ _k: nextKey(), text: '', prompt_type: 'student', response_type: 'text', table_headers: [], table_row_labels: [], video_url: '', ...overrides })
 const mkLink = () => ({ _k: nextKey(), url: '', label: '' })
 const mkSection = () => ({ _k: nextKey(), title: '', prompts: [mkPrompt()], links: [] })
 
@@ -68,7 +68,7 @@ export default function ActivityBuilder() {
           _k: nextKey(),
           title: sec.title || '',
           prompts: sec.prompts.length
-            ? sec.prompts.map(p => ({ _k: nextKey(), text: p.text || '', prompt_type: p.prompt_type || 'student', response_type: p.response_type || 'text', table_headers: p.table_headers || [], video_url: p.video_url || '' }))
+            ? sec.prompts.map(p => ({ _k: nextKey(), text: p.text || '', prompt_type: p.prompt_type || 'student', response_type: p.response_type || 'text', table_headers: p.table_headers || [], table_row_labels: p.table_row_labels || [], video_url: p.video_url || '' }))
             : [mkPrompt()],
           links: sec.links.map(l => ({ _k: nextKey(), url: l.url, label: l.label || '' })),
         })))
@@ -129,6 +129,15 @@ export default function ActivityBuilder() {
   const removeHeader = (sIdx, pIdx, hIdx) =>
     updatePrompt(sIdx, pIdx, 'table_headers', sections[sIdx].prompts[pIdx].table_headers.filter((_, i) => i !== hIdx))
 
+  // ── Table row label helpers ──────────────────────────────────────────────────
+  const addRowLabel    = (sIdx, pIdx) => updatePrompt(sIdx, pIdx, 'table_row_labels', [...sections[sIdx].prompts[pIdx].table_row_labels, ''])
+  const updateRowLabel = (sIdx, pIdx, rIdx, val) => {
+    const rs = [...sections[sIdx].prompts[pIdx].table_row_labels]; rs[rIdx] = val
+    updatePrompt(sIdx, pIdx, 'table_row_labels', rs)
+  }
+  const removeRowLabel = (sIdx, pIdx, rIdx) =>
+    updatePrompt(sIdx, pIdx, 'table_row_labels', sections[sIdx].prompts[pIdx].table_row_labels.filter((_, i) => i !== rIdx))
+
   const toggleGrade = gid => setGradeIds(prev => prev.includes(gid) ? prev.filter(x => x !== gid) : [...prev, gid])
 
   const handleFileSelect = e => {
@@ -155,7 +164,7 @@ export default function ActivityBuilder() {
     gradeIds.forEach(gid => fd.append('grade_levels', gid))
     fd.append('sections_json', JSON.stringify(sections.map(sec => ({
       title: sec.title,
-      prompts: sec.prompts.map(p => ({ text: p.text, prompt_type: p.prompt_type, response_type: p.response_type, table_headers: p.table_headers, video_url: p.video_url || '' })),
+      prompts: sec.prompts.map(p => ({ text: p.text, prompt_type: p.prompt_type, response_type: p.response_type, table_headers: p.table_headers, table_row_labels: p.table_row_labels, video_url: p.video_url || '' })),
       links: sec.links.map(l => ({ url: l.url, label: l.label })),
     }))))
     fd.append('video_url', videoUrl)
@@ -503,6 +512,21 @@ export default function ActivityBuilder() {
                                 <button type="button" onClick={() => addHeader(sIdx, pIdx)}
                                   style={{ padding: '0.25rem 0.7rem', background: '#f5f5f5', border: '1px dashed var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
                                   + Add Column
+                                </button>
+
+                                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', margin: '0.65rem 0 0.4rem' }}>Preset Rows (optional)</div>
+                                {prompt.table_row_labels.map((r, rIdx) => (
+                                  <div key={rIdx} style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.3rem' }}>
+                                    <input className="form-input" style={{ fontSize: '0.85rem' }} value={r}
+                                      onChange={e => updateRowLabel(sIdx, pIdx, rIdx, e.target.value)}
+                                      placeholder={`Row ${rIdx + 1}`} />
+                                    <button type="button" onClick={() => removeRowLabel(sIdx, pIdx, rIdx)}
+                                      style={{ padding: '0.25rem 0.45rem', background: '#fff5f5', border: '1px solid #ffaaaa', borderRadius: 5, cursor: 'pointer', color: '#c00' }}>×</button>
+                                  </div>
+                                ))}
+                                <button type="button" onClick={() => addRowLabel(sIdx, pIdx)}
+                                  style={{ padding: '0.25rem 0.7rem', background: '#f5f5f5', border: '1px dashed var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
+                                  + Add Row
                                 </button>
                               </div>
                             )}

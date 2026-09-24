@@ -48,6 +48,10 @@
           <div class="table-instructions">
             Draw your own data table below with these column headings:
             <ul>{% for h in block.headers %}<li>{{ h }}</li>{% endfor %}</ul>
+            {% if block.row_labels %}
+              and these rows:
+              <ul>{% for r in block.row_labels %}<li>{{ r }}</li>{% endfor %}</ul>
+            {% endif %}
           </div>
           <table class="draw-box-table"><tr><td class="draw-box-cell">&nbsp;</td></tr></table>
         </div>

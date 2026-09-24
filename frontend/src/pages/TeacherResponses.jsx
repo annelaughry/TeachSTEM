@@ -238,6 +238,9 @@ export default function TeacherResponses() {
                                               {resp.response_table.headers?.length > 0 && (
                                                 <thead>
                                                   <tr>
+                                                    {resp.response_table.row_labels?.length > 0 && (
+                                                      <th style={{ background: 'var(--teal-dark)', border: '1px solid var(--teal-dark)' }} />
+                                                    )}
                                                     {resp.response_table.headers.map((h, i) => (
                                                       <th key={i} style={{ padding: '0.35rem 0.6rem', background: 'var(--teal)', color: '#fff', border: '1px solid var(--teal-dark)', fontSize: '0.8rem', textAlign: 'left', fontWeight: 800 }}>{h}</th>
                                                     ))}
@@ -247,6 +250,11 @@ export default function TeacherResponses() {
                                               <tbody>
                                                 {(resp.response_table.rows || []).map((row, ri) => (
                                                   <tr key={ri}>
+                                                    {resp.response_table.row_labels?.length > 0 && (
+                                                      <td style={{ padding: '0.3rem 0.55rem', border: '1px solid var(--border)', fontSize: '0.86rem', fontWeight: 800, background: 'var(--teal-light)', color: 'var(--teal-dark)' }}>
+                                                        {resp.response_table.row_labels[ri] || ''}
+                                                      </td>
+                                                    )}
                                                     {(Array.isArray(row) ? row : Object.values(row)).map((cell, ci) => (
                                                       <td key={ci} style={{ padding: '0.3rem 0.55rem', border: '1px solid var(--border)', fontSize: '0.88rem' }}>{cell}</td>
                                                     ))}

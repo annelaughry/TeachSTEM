@@ -166,6 +166,7 @@ class ActivityPrompt(models.Model):
     video_url = models.CharField(max_length=500, blank=True, default='')
     response_type = models.CharField(max_length=10, choices=RESPONSE_TYPE_CHOICES, default='text')
     table_headers = models.JSONField(default=list, blank=True)
+    table_row_labels = models.JSONField(default=list, blank=True)
     order = models.PositiveIntegerField(default=0)
 
     class Meta:

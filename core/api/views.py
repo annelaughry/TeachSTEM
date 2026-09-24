@@ -214,6 +214,7 @@ def api_activity_pdf_teacher(request, pk):
                 'video_url': p.video_url,
                 'response_type_display': p.get_response_type_display(),
                 'table_headers': p.table_headers,
+                'table_row_labels': p.table_row_labels,
             })
         sections.append({
             'title': section.title,
@@ -250,7 +251,7 @@ def api_activity_pdf_student(request, pk):
                 blocks.append({'type': 'video', 'text': p.text, 'url': p.video_url})
             elif p.prompt_type == 'student':
                 if p.response_type == 'table':
-                    blocks.append({'type': 'table_prompt', 'text': p.text, 'headers': p.table_headers})
+                    blocks.append({'type': 'table_prompt', 'text': p.text, 'headers': p.table_headers, 'row_labels': p.table_row_labels})
                 elif p.response_type == 'video':
                     blocks.append({'type': 'video_prompt', 'text': p.text})
                 else:
@@ -472,12 +473,19 @@ def _save_sections_from_json(activity, sections_data):
                         table_headers = json.loads(table_headers)
                 except Exception:
                     table_headers = []
+                try:
+                    table_row_labels = p.get('table_row_labels', []) or []
+                    if isinstance(table_row_labels, str):
+                        table_row_labels = json.loads(table_row_labels)
+                except Exception:
+                    table_row_labels = []
                 ActivityPrompt.objects.create(
                     section=section,
                     text=prompt_text,
                     prompt_type=prompt_type,
                     response_type=response_type,
                     table_headers=table_headers,
+                    table_row_labels=table_row_labels,
                     video_url=video_url,
                     order=j,
                 )

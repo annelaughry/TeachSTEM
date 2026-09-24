@@ -76,6 +76,9 @@
           {% if block.table_headers %}
             <div class="columns">Columns: {{ block.table_headers|join:", " }}</div>
           {% endif %}
+          {% if block.table_row_labels %}
+            <div class="columns">Rows: {{ block.table_row_labels|join:", " }}</div>
+          {% endif %}
         </div>
       {% endif %}
     {% endfor %}

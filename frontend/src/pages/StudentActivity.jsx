@@ -313,17 +313,30 @@ function DrawingCanvas({ promptId, existingUrl, onSaved }) {
 
 // ── Data table sub-component ─────────────────────────────────────────────────
 
-function DataTable({ tableHeaders, initialData, onChange }) {
+function DataTable({ tableHeaders, rowLabels = [], initialData, onChange }) {
   const cols = tableHeaders.length || 2
+  const presetCount = rowLabels.length
+
   const initRows = () => {
     if (initialData?.rows?.length) return initialData.rows.map(r => Array.isArray(r) ? r : Object.values(r))
+    if (presetCount) return rowLabels.map(() => Array(cols).fill(''))
     return [Array(cols).fill('')]
   }
+  const initLabels = () => {
+    if (initialData?.row_labels?.length) return initialData.row_labels
+    if (presetCount) {
+      const rowCount = initialData?.rows?.length || presetCount
+      return [...rowLabels, ...Array(Math.max(0, rowCount - presetCount)).fill('')]
+    }
+    return (initialData?.rows || [null]).map(() => '')
+  }
+
   const [rows, setRows] = useState(initRows)
+  const [labels, setLabels] = useState(initLabels)
 
   useEffect(() => {
-    onChange({ headers: tableHeaders, rows })
-  }, [rows])
+    onChange({ headers: tableHeaders, rows, row_labels: labels })
+  }, [rows, labels])
 
   const setCell = (r, c, val) => setRows(prev => {
     const next = prev.map(row => [...row])
@@ -332,14 +345,30 @@ function DataTable({ tableHeaders, initialData, onChange }) {
     return next
   })
 
-  const addRow = () => setRows(prev => [...prev, Array(cols).fill('')])
-  const removeRow = r => setRows(prev => prev.length > 1 ? prev.filter((_, i) => i !== r) : prev)
+  const addRow = () => {
+    setRows(prev => [...prev, Array(cols).fill('')])
+    setLabels(prev => [...prev, ''])
+  }
+  const removeRow = r => {
+    if (r < presetCount) return   // preset rows are locked
+    if (rows.length <= presetCount || rows.length <= 1) return
+    setRows(prev => prev.filter((_, i) => i !== r))
+    setLabels(prev => prev.filter((_, i) => i !== r))
+  }
+  const setLabel = (r, val) => setLabels(prev => {
+    const next = [...prev]
+    next[r] = val
+    return next
+  })
 
   return (
     <div style={{ marginTop: '0.75rem', overflowX: 'auto' }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: cols * 120 }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: cols * 120 + (presetCount ? 130 : 0) }}>
         <thead>
           <tr>
+            {presetCount > 0 && (
+              <th style={{ width: 120, background: 'var(--teal-dark)', border: '1px solid var(--teal-dark)' }} />
+            )}
             {(tableHeaders.length ? tableHeaders : Array(cols).fill('')).map((h, ci) => (
               <th key={ci} style={{ padding: '0.4rem 0.6rem', background: 'var(--teal)', color: '#fff', border: '1px solid var(--teal-dark)', fontSize: '0.82rem', textAlign: 'left', fontWeight: 800 }}>
                 {h || `Column ${ci + 1}`}
@@ -351,6 +380,19 @@ function DataTable({ tableHeaders, initialData, onChange }) {
         <tbody>
           {rows.map((row, ri) => (
             <tr key={ri}>
+              {presetCount > 0 && (
+                ri < presetCount ? (
+                  <td style={{ border: '1px solid var(--border)', padding: '0.35rem 0.5rem', fontWeight: 800, fontSize: '0.88rem', background: 'var(--teal-light)', color: 'var(--teal-dark)' }}>
+                    {labels[ri] || `Row ${ri + 1}`}
+                  </td>
+                ) : (
+                  <td style={{ border: '1px solid var(--border)', padding: 0 }}>
+                    <input style={{ width: '100%', border: 'none', padding: '0.35rem 0.5rem', fontSize: '0.88rem', fontFamily: 'inherit', fontWeight: 700, background: 'transparent' }}
+                      value={labels[ri] ?? ''} onChange={e => setLabel(ri, e.target.value)}
+                      placeholder="Row label (optional)" />
+                  </td>
+                )
+              )}
               {Array(cols).fill(null).map((_, ci) => (
                 <td key={ci} style={{ border: '1px solid var(--border)', padding: 0 }}>
                   <input style={{ width: '100%', border: 'none', padding: '0.35rem 0.5rem', fontSize: '0.9rem', fontFamily: 'inherit', background: 'transparent' }}
@@ -358,11 +400,13 @@ function DataTable({ tableHeaders, initialData, onChange }) {
                 </td>
               ))}
               <td style={{ border: '1px solid var(--border)', textAlign: 'center' }}>
-                <button type="button" onClick={() => removeRow(ri)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2D2D2D', fontWeight: 700, padding: '0 0.35rem' }}
-                  onMouseEnter={e => e.target.style.color = '#c00'} onMouseLeave={e => e.target.style.color = '#ccc'}>
-                  ×
-                </button>
+                {ri >= presetCount && (
+                  <button type="button" onClick={() => removeRow(ri)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2D2D2D', fontWeight: 700, padding: '0 0.35rem' }}
+                    onMouseEnter={e => e.target.style.color = '#c00'} onMouseLeave={e => e.target.style.color = '#ccc'}>
+                    ×
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -607,6 +651,7 @@ export default function StudentActivity() {
                   {prompt.response_type === 'table' && (
                     <DataTable
                       tableHeaders={prompt.table_headers || []}
+                      rowLabels={prompt.table_row_labels || []}
                       initialData={tableDrafts[prompt.id] || existing?.response_table || null}
                       onChange={data => setTableDrafts(prev => ({ ...prev, [prompt.id]: data }))}
                     />
