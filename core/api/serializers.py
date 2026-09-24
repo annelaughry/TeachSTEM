@@ -6,6 +6,7 @@ from core.models import (
     TeacherProfile, StudentResponse, TeacherFeedback, ActivityFile,
     TeacherProjectReflection, ReflectionFile, TeachSTEMProfile, TeachSTEMTask, TeachSTEMTaskCompletion,
     ProjectTopicSubmission, ProjectStarter, TopicSuggestion, TStemSurveyResponse, TeacherSurveyResponse,
+    ForumThread, ForumReply,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
     StudentReflectionAssignment, StudentReflectionResponse,
     StaffTask, StaffTaskCompletion, StaffProjectTopicSubmission, StaffProjectStarter,
@@ -311,6 +312,51 @@ class TopicSuggestionSerializer(serializers.ModelSerializer):
         if obj.reviewed_by:
             return obj.reviewed_by.get_full_name() or obj.reviewed_by.username
         return None
+
+
+class ForumReplySerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    is_own = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ForumReply
+        fields = ['id', 'thread', 'body', 'author_name', 'is_own', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'thread', 'author_name', 'is_own', 'created_at', 'updated_at']
+
+    def get_author_name(self, obj):
+        return obj.author.get_full_name() or obj.author.username
+
+    def get_is_own(self, obj):
+        request = self.context.get('request')
+        return bool(request and request.user.is_authenticated and obj.author_id == request.user.id)
+
+
+class ForumThreadListSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    reply_count = serializers.SerializerMethodField()
+    is_own = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ForumThread
+        fields = ['id', 'title', 'category', 'author_name', 'is_own', 'reply_count', 'created_at', 'updated_at']
+
+    def get_author_name(self, obj):
+        return obj.author.get_full_name() or obj.author.username
+
+    def get_reply_count(self, obj):
+        return obj.replies.count()
+
+    def get_is_own(self, obj):
+        request = self.context.get('request')
+        return bool(request and request.user.is_authenticated and obj.author_id == request.user.id)
+
+
+class ForumThreadDetailSerializer(ForumThreadListSerializer):
+    body = serializers.CharField()
+    replies = ForumReplySerializer(many=True, read_only=True)
+
+    class Meta(ForumThreadListSerializer.Meta):
+        fields = ForumThreadListSerializer.Meta.fields + ['body', 'replies']
 
 
 class TeachSTEMTaskSerializer(serializers.ModelSerializer):

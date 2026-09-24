@@ -394,6 +394,41 @@ class TopicSuggestion(models.Model):
         return f"{self.teacher.username} — {self.topic} ({self.submitted_at.date()})"
 
 
+class ForumThread(models.Model):
+    CATEGORY_CHOICES = [
+        ('general', 'General Discussion'),
+        ('question', 'Question'),
+        ('resource', 'Resource Share'),
+        ('announcement', 'Announcement'),
+    ]
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='forum_threads')
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='general')
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return self.title
+
+
+class ForumReply(models.Model):
+    thread = models.ForeignKey(ForumThread, on_delete=models.CASCADE, related_name='replies')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='forum_replies')
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Reply by {self.author.username} on thread {self.thread_id}"
+
+
 class TStemSurveyResponse(models.Model):
     teacher = models.OneToOneField(User, on_delete=models.CASCADE, related_name='tstem_survey')
     responses = models.JSONField(default=dict, blank=True)

@@ -20,6 +20,7 @@ from core.models import (
     ClassroomSectionPoints, StudentSectionScore, TeacherProjectReflection, ReflectionFile,
     TeachSTEMProfile, TeachSTEMTask,
     TeachSTEMTaskCompletion, ProjectTopicSubmission, ProjectStarter, TopicSuggestion, TStemSurveyResponse, TeacherSurveyResponse,
+    ForumThread, ForumReply,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
     StudentReflectionAssignment, StudentReflectionResponse,
     StaffProfile, StaffTask, StaffTaskCompletion, StaffProjectTopicSubmission, StaffProjectStarter,
@@ -34,6 +35,7 @@ from .serializers import (
     TeacherStudentResponseSerializer, TeacherFeedbackSerializer,
     TeacherProjectReflectionSerializer, TeachSTEMProfileSerializer, TeachSTEMTaskSerializer,
     ProjectTopicSubmissionSerializer, ProjectStarterSerializer, TopicSuggestionSerializer, TStemSurveyResponseSerializer,
+    ForumThreadListSerializer, ForumThreadDetailSerializer, ForumReplySerializer,
     ThreeTwoOneAssignmentSerializer, ThreeTwoOneResponseSerializer,
     StudentReflectionAssignmentSerializer, StudentReflectionResponseSerializer,
     TeacherSurveyResponseSerializer,
@@ -1749,6 +1751,115 @@ def api_admin_topic_suggestion_feedback(request, pk):
     sub.status = 'reviewed'
     sub.save()
     return Response(TopicSuggestionSerializer(sub).data)
+
+
+# ── Forum ─────────────────────────────────────────────────────────────────────
+
+@api_view(['GET', 'POST'])
+def api_forum_threads(request):
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+
+    if request.method == 'GET':
+        qs = ForumThread.objects.select_related('author').prefetch_related('replies')
+        category = request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category)
+        return Response(ForumThreadListSerializer(qs, many=True, context={'request': request}).data)
+
+    title = request.data.get('title', '').strip()
+    if not title:
+        return Response({'error': 'A title is required.'}, status=400)
+    category = request.data.get('category', 'general')
+    if category not in dict(ForumThread.CATEGORY_CHOICES):
+        category = 'general'
+    thread = ForumThread.objects.create(
+        author=request.user, title=title,
+        body=request.data.get('body', '').strip(), category=category,
+    )
+    return Response(ForumThreadDetailSerializer(thread, context={'request': request}).data, status=201)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def api_forum_thread_detail(request, pk):
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+    try:
+        thread = ForumThread.objects.select_related('author').prefetch_related('replies__author').get(pk=pk)
+    except ForumThread.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+    if request.method == 'GET':
+        return Response(ForumThreadDetailSerializer(thread, context={'request': request}).data)
+
+    is_admin = request.user.is_staff or request.user.is_superuser
+    is_owner = thread.author_id == request.user.id
+
+    if request.method == 'DELETE':
+        if not (is_owner or is_admin):
+            return Response({'error': 'You can only delete your own thread.'}, status=403)
+        thread.delete()
+        return Response({'ok': True})
+
+    if not is_owner:
+        return Response({'error': 'Only the author can edit this thread.'}, status=403)
+    title = request.data.get('title', '').strip()
+    if not title:
+        return Response({'error': 'A title is required.'}, status=400)
+    category = request.data.get('category', thread.category)
+    if category not in dict(ForumThread.CATEGORY_CHOICES):
+        category = thread.category
+    thread.title = title
+    thread.body = request.data.get('body', '').strip()
+    thread.category = category
+    thread.save()
+    return Response(ForumThreadDetailSerializer(thread, context={'request': request}).data)
+
+
+@api_view(['POST'])
+def api_forum_reply_create(request, thread_pk):
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+    try:
+        thread = ForumThread.objects.get(pk=thread_pk)
+    except ForumThread.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+    body = request.data.get('body', '').strip()
+    if not body:
+        return Response({'error': 'Reply cannot be empty.'}, status=400)
+    reply = ForumReply.objects.create(thread=thread, author=request.user, body=body)
+    from django.utils import timezone
+    thread.updated_at = timezone.now()
+    thread.save(update_fields=['updated_at'])
+    return Response(ForumReplySerializer(reply, context={'request': request}).data, status=201)
+
+
+@api_view(['PUT', 'DELETE'])
+def api_forum_reply_detail(request, pk):
+    if not _teacher_required(request):
+        return Response({'error': 'Teacher access required.'}, status=403)
+    try:
+        reply = ForumReply.objects.get(pk=pk)
+    except ForumReply.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+    is_admin = request.user.is_staff or request.user.is_superuser
+    is_owner = reply.author_id == request.user.id
+
+    if request.method == 'DELETE':
+        if not (is_owner or is_admin):
+            return Response({'error': 'You can only delete your own reply.'}, status=403)
+        reply.delete()
+        return Response({'ok': True})
+
+    if not is_owner:
+        return Response({'error': 'Only the author can edit this reply.'}, status=403)
+    body = request.data.get('body', '').strip()
+    if not body:
+        return Response({'error': 'Reply cannot be empty.'}, status=400)
+    reply.body = body
+    reply.save()
+    return Response(ForumReplySerializer(reply, context={'request': request}).data)
 
 
 @api_view(['GET'])

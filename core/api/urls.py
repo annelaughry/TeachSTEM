@@ -48,6 +48,12 @@ urlpatterns = [
     path('topic-suggestions/', views.api_topic_suggestions, name='api_topic_suggestions'),
     path('topic-suggestions/<int:pk>/', views.api_topic_suggestion_delete, name='api_topic_suggestion_delete'),
 
+    # Forum
+    path('forum/threads/', views.api_forum_threads, name='api_forum_threads'),
+    path('forum/threads/<int:pk>/', views.api_forum_thread_detail, name='api_forum_thread_detail'),
+    path('forum/threads/<int:thread_pk>/replies/', views.api_forum_reply_create, name='api_forum_reply_create'),
+    path('forum/replies/<int:pk>/', views.api_forum_reply_detail, name='api_forum_reply_detail'),
+
     # Student classrooms
     path('student/classrooms/', views.api_student_classrooms, name='api_student_classrooms'),
 

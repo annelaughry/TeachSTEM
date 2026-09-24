@@ -46,6 +46,7 @@ export default function Nav() {
             <NavLink to="/" className={({ isActive }) => 'nav__link' + (isActive ? ' nav__link--active' : '')}>Lesson Library</NavLink>
             <NavLink to="/teacher" className={({ isActive }) => 'nav__link' + (isActive ? ' nav__link--active' : '')}>Teaching Dashboard</NavLink>
             <NavLink to="/teacher/modules" className={({ isActive }) => 'nav__link' + (isActive ? ' nav__link--active' : '')}>Modules</NavLink>
+            <NavLink to="/teacher/forum" className={({ isActive }) => 'nav__link' + (isActive ? ' nav__link--active' : '')}>Forum</NavLink>
             {isTeachSTEM && (
               <NavLink to="/teach-stem" className={({ isActive }) => 'nav__link' + (isActive ? ' nav__link--active' : '')}>Teach STEM</NavLink>
             )}

@@ -37,6 +37,8 @@ import StaffProfilePage from './pages/StaffProfilePage'
 import StaffProjectTopics from './pages/StaffProjectTopics'
 import StaffProjectStarterBuilder from './pages/StaffProjectStarterBuilder'
 import StaffProjectReflectionSurvey from './pages/StaffProjectReflectionSurvey'
+import ForumList from './pages/ForumList'
+import ForumThreadDetail from './pages/ForumThreadDetail'
 
 function RequireAuth({ children, role }) {
   const { user, loading, isTeacher, isAdmin, isTeachSTEM, isProgramStaff } = useAuth()
@@ -87,6 +89,8 @@ function AppRoutes() {
         <Route path="/program-staff/project-reflection" element={<RequireAuth role="program_staff"><StaffProjectReflectionSurvey /></RequireAuth>} />
         <Route path="/program-staff/project-topics" element={<RequireAuth role="program_staff"><StaffProjectTopics /></RequireAuth>} />
         <Route path="/program-staff/project-starter" element={<RequireAuth role="program_staff"><StaffProjectStarterBuilder /></RequireAuth>} />
+        <Route path="/teacher/forum" element={<RequireAuth role="teacher"><ForumList /></RequireAuth>} />
+        <Route path="/teacher/forum/:id" element={<RequireAuth role="teacher"><ForumThreadDetail /></RequireAuth>} />
         <Route path="/teacher/survey" element={<RequireAuth role="teacher"><TeacherSurvey /></RequireAuth>} />
         <Route path="/teacher/activity/create" element={<RequireAuth role="teach_stem"><ActivityBuilder /></RequireAuth>} />
         <Route path="/teacher/activity/:id/edit" element={<RequireAuth role="teach_stem"><ActivityBuilder /></RequireAuth>} />
