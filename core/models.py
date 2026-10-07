@@ -463,6 +463,65 @@ class TeachSTEMTaskCompletion(models.Model):
         return f"{self.teacher.username} completed {self.task.title}"
 
 
+class TeachSTEMPollOption(models.Model):
+    """An answer choice on a Teach STEM task. A task with options is a poll: the task title is
+    the question, and casting a vote marks the task complete for that teacher."""
+    task = models.ForeignKey(TeachSTEMTask, on_delete=models.CASCADE, related_name='poll_options')
+    text = models.CharField(max_length=300)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"{self.task.title}: {self.text}"
+
+
+class TeachSTEMPollVote(models.Model):
+    task = models.ForeignKey(TeachSTEMTask, on_delete=models.CASCADE, related_name='poll_votes')
+    option = models.ForeignKey(TeachSTEMPollOption, on_delete=models.CASCADE, related_name='votes')
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='poll_votes')
+    voted_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('task', 'teacher')
+
+    def __str__(self):
+        return f"{self.teacher.username} voted {self.option.text}"
+
+
+class TeachSTEMCalendarEvent(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    location = models.CharField(max_length=300, blank=True)
+    link = models.URLField(max_length=500, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='teach_stem_events')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'start_time', 'title']
+
+    def __str__(self):
+        return f"{self.date} {self.title}"
+
+
+class TeachSTEMSettings(models.Model):
+    """Single-row settings for the Teach STEM program. Use TeachSTEMSettings.load()."""
+    google_calendar_embed_url = models.URLField(max_length=1000, blank=True)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return 'Teach STEM Settings'
+
+
 class TeachSTEMProfile(models.Model):
     teacher = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teach_stem_profile')
     name = models.CharField(max_length=200, blank=True)

@@ -3,6 +3,7 @@ import os
 from django.contrib.auth import authenticate
 from django.core.files.base import ContentFile
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils.text import slugify
@@ -19,7 +20,8 @@ from core.models import (
     TeacherProfile, StudentResponse, TeacherFeedback, ActivityFile,
     ClassroomSectionPoints, StudentSectionScore, TeacherProjectReflection, ReflectionFile,
     TeachSTEMProfile, TeachSTEMTask,
-    TeachSTEMTaskCompletion, ProjectTopicSubmission, ProjectStarter, TopicSuggestion, TStemSurveyResponse, TeacherSurveyResponse,
+    TeachSTEMTaskCompletion, TeachSTEMPollOption, TeachSTEMPollVote, TeachSTEMCalendarEvent, TeachSTEMSettings,
+    ProjectTopicSubmission, ProjectStarter, TopicSuggestion, TStemSurveyResponse, TeacherSurveyResponse,
     ForumThread, ForumReply,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
     StudentReflectionAssignment, StudentReflectionResponse,
@@ -34,6 +36,7 @@ from .serializers import (
     ClassroomDetailSerializer, ModuleSerializer, StudentResponseSerializer,
     TeacherStudentResponseSerializer, TeacherFeedbackSerializer,
     TeacherProjectReflectionSerializer, TeachSTEMProfileSerializer, TeachSTEMTaskSerializer,
+    TeachSTEMCalendarEventSerializer,
     ProjectTopicSubmissionSerializer, ProjectStarterSerializer, TopicSuggestionSerializer, TStemSurveyResponseSerializer,
     ForumThreadListSerializer, ForumThreadDetailSerializer, ForumReplySerializer,
     ThreeTwoOneAssignmentSerializer, ThreeTwoOneResponseSerializer,
@@ -1186,16 +1189,47 @@ def api_teach_stem_tasks(request):
     if request.method == 'GET':
         if not (_teach_stem_required(request) or is_admin):
             return Response({'error': 'Access required.'}, status=403)
-        tasks = TeachSTEMTask.objects.prefetch_related('completions').all()
+        tasks = TeachSTEMTask.objects.prefetch_related('completions', 'poll_options', 'poll_votes').all()
         return Response(TeachSTEMTaskSerializer(tasks, many=True, context={'request': request}).data)
 
     if not is_admin:
         return Response({'error': 'Admin access required.'}, status=403)
-    serializer = TeachSTEMTaskSerializer(data=request.data)
+    options, error = _clean_poll_options(request.data.get('poll_options'))
+    if error:
+        return Response({'error': error}, status=400)
+    serializer = TeachSTEMTaskSerializer(data=request.data, context={'request': request})
     if not serializer.is_valid():
         return Response(serializer.errors, status=400)
-    serializer.save(created_by=request.user)
-    return Response(serializer.data, status=201)
+    with transaction.atomic():
+        task = serializer.save(created_by=request.user)
+        _set_poll_options(task, options)
+    return Response(TeachSTEMTaskSerializer(task, context={'request': request}).data, status=201)
+
+
+def _clean_poll_options(raw):
+    """Returns (options, error). None means 'not provided'; [] means a plain task.
+    A poll needs at least two distinct, non-blank choices."""
+    if raw is None:
+        return None, None
+    if not isinstance(raw, list):
+        return None, 'poll_options must be a list.'
+    options = [str(o).strip() for o in raw if str(o).strip()]
+    if len(options) == 1:
+        return None, 'A poll needs at least two options.'
+    if len({o.lower() for o in options}) != len(options):
+        return None, 'Poll options must be different from each other.'
+    if any(len(o) > 300 for o in options):
+        return None, 'Each poll option must be 300 characters or fewer.'
+    return options, None
+
+
+def _set_poll_options(task, options):
+    if options is None:
+        return
+    task.poll_options.all().delete()
+    TeachSTEMPollOption.objects.bulk_create([
+        TeachSTEMPollOption(task=task, text=text, order=i) for i, text in enumerate(options)
+    ])
 
 
 @api_view(['PUT', 'DELETE'])
@@ -1211,11 +1245,145 @@ def api_teach_stem_task_detail(request, pk):
         task.delete()
         return Response({'ok': True})
 
-    serializer = TeachSTEMTaskSerializer(task, data=request.data, partial=True)
+    options, error = _clean_poll_options(request.data.get('poll_options'))
+    if error:
+        return Response({'error': error}, status=400)
+    if options is not None and task.poll_votes.exists():
+        current = list(task.poll_options.values_list('text', flat=True))
+        if options != current:
+            return Response({'error': 'Poll options cannot be changed after teachers have voted.'}, status=400)
+        options = None
+    serializer = TeachSTEMTaskSerializer(task, data=request.data, partial=True, context={'request': request})
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    with transaction.atomic():
+        task = serializer.save()
+        _set_poll_options(task, options)
+    return Response(TeachSTEMTaskSerializer(task, context={'request': request}).data)
+
+
+@api_view(['POST'])
+def api_teach_stem_task_vote(request, pk):
+    """Cast or change a vote on a poll task. Voting marks the task complete."""
+    if not _teach_stem_required(request):
+        return Response({'error': 'Teach STEM access required.'}, status=403)
+    try:
+        task = TeachSTEMTask.objects.get(pk=pk)
+        option = task.poll_options.get(pk=request.data.get('option'))
+    except (TeachSTEMTask.DoesNotExist, TeachSTEMPollOption.DoesNotExist, ValueError, TypeError):
+        return Response({'error': 'Not found.'}, status=404)
+
+    with transaction.atomic():
+        TeachSTEMPollVote.objects.update_or_create(
+            task=task, teacher=request.user, defaults={'option': option}
+        )
+        TeachSTEMTaskCompletion.objects.get_or_create(teacher=request.user, task=task)
+    return Response({'completed': True, 'my_vote': option.id})
+
+
+@api_view(['GET'])
+def api_teach_stem_calendar(request):
+    """Everything the Teach STEM calendar shows: admin-posted events plus the linked Google Calendar."""
+    is_admin = request.user.is_staff or request.user.is_superuser
+    if not (_teach_stem_required(request) or is_admin):
+        return Response({'error': 'Access required.'}, status=403)
+    return Response({
+        'events': TeachSTEMCalendarEventSerializer(TeachSTEMCalendarEvent.objects.all(), many=True).data,
+        'google_calendar_embed_url': TeachSTEMSettings.load().google_calendar_embed_url,
+    })
+
+
+@api_view(['POST'])
+def api_teach_stem_calendar_events(request):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    serializer = TeachSTEMCalendarEventSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    serializer.save(created_by=request.user)
+    return Response(serializer.data, status=201)
+
+
+@api_view(['PUT', 'DELETE'])
+def api_teach_stem_calendar_event_detail(request, pk):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    try:
+        event = TeachSTEMCalendarEvent.objects.get(pk=pk)
+    except TeachSTEMCalendarEvent.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=404)
+
+    if request.method == 'DELETE':
+        event.delete()
+        return Response({'ok': True})
+
+    serializer = TeachSTEMCalendarEventSerializer(event, data=request.data, partial=True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=400)
     serializer.save()
     return Response(serializer.data)
+
+
+@api_view(['PUT'])
+def api_teach_stem_calendar_google(request):
+    """Set or clear the Google Calendar shown on the Teach STEM dashboard."""
+    if not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Admin access required.'}, status=403)
+    embed_url, error = _google_calendar_embed_url(request.data.get('url', ''))
+    if error:
+        return Response({'error': error}, status=400)
+    settings_row = TeachSTEMSettings.load()
+    settings_row.google_calendar_embed_url = embed_url
+    settings_row.save()
+    return Response({'google_calendar_embed_url': embed_url})
+
+
+def _google_calendar_embed_url(raw):
+    """Turn whatever an admin pastes -- the embed code, an embed link, a share link (?cid=...),
+    the public iCal address, or a bare calendar ID -- into an embeddable Google Calendar URL.
+    Returns (url, error). Only calendar.google.com URLs are ever returned, since the result
+    is placed in an iframe."""
+    import base64, binascii, html, re
+    from urllib.parse import urlparse, parse_qs, quote, unquote
+
+    text = (raw or '').strip()
+    if not text:
+        return '', None
+
+    src = re.search(r'src\s*=\s*["\']([^"\']+)["\']', text)
+    if src:
+        text = html.unescape(src.group(1)).strip()
+
+    def embed_for(calendar_id):
+        return f'https://calendar.google.com/calendar/embed?src={quote(calendar_id, safe="")}'
+
+    if re.fullmatch(r'[^\s/@]+@[^\s/@]+', text):
+        return embed_for(text), None
+
+    parsed = urlparse(text)
+    if parsed.scheme not in ('http', 'https') or parsed.netloc != 'calendar.google.com':
+        return None, 'Paste a Google Calendar link or embed code (it should come from calendar.google.com).'
+
+    if parsed.path.startswith('/calendar/embed'):
+        return parsed._replace(scheme='https').geturl(), None
+
+    ical = re.match(r'/calendar/ical/([^/]+)/', parsed.path)
+    if ical:
+        return embed_for(unquote(ical.group(1))), None
+
+    cid = parse_qs(parsed.query).get('cid', [''])[0]
+    if cid:
+        if '@' in cid:
+            return embed_for(cid), None
+        try:
+            decoded = base64.urlsafe_b64decode(cid + '=' * (-len(cid) % 4)).decode('utf-8')
+        except (binascii.Error, UnicodeDecodeError, ValueError):
+            decoded = ''
+        if '@' in decoded:
+            return embed_for(decoded), None
+
+    return None, ('That link can\'t be shown on the dashboard. In Google Calendar, open the calendar\'s '
+                  'Settings and copy the "Embed code" or "Public URL to this calendar".')
 
 
 @api_view(['POST'])
@@ -1226,6 +1394,8 @@ def api_teach_stem_task_complete(request, pk):
         task = TeachSTEMTask.objects.get(pk=pk)
     except TeachSTEMTask.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
+    if task.poll_options.exists():
+        return Response({'error': 'Answer the poll to complete this task.'}, status=400)
 
     completion, created = TeachSTEMTaskCompletion.objects.get_or_create(
         teacher=request.user, task=task

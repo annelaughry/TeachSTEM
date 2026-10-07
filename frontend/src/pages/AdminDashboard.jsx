@@ -3,8 +3,11 @@ import { Link } from 'react-router-dom'
 import api from '../api'
 import { SECTIONS as TSTEM_SECTIONS } from '../data/tstemSurvey'
 import { SECTIONS as TEACHER_SECTIONS } from '../data/teacherSurvey'
+import { EventDetails, todayKey } from '../components/TeachSTEMCalendar'
 
 const BLANK_TASK = { title: '', description: '', due_date: '' }
+const BLANK_POLL = { title: '', description: '', due_date: '', options: ['', ''] }
+const BLANK_EVENT = { title: '', description: '', date: '', end_date: '', start_time: '', end_time: '', location: '', link: '' }
 
 export default function AdminDashboard() {
   const [data, setData]       = useState(null)
@@ -59,6 +62,25 @@ export default function AdminDashboard() {
   const [savingTask, setSavingTask] = useState(false)
   const [taskError, setTaskError]   = useState(null)
 
+  // Poll builder state (a poll is a Teach STEM task with answer options)
+  const [showPollForm, setShowPollForm] = useState(false)
+  const [pollForm, setPollForm]         = useState(BLANK_POLL)
+  const [savingPoll, setSavingPoll]     = useState(false)
+  const [pollError, setPollError]       = useState(null)
+
+  // Teach STEM calendar state
+  const [calEvents, setCalEvents]           = useState([])
+  const [eventForm, setEventForm]           = useState(BLANK_EVENT)
+  const [editingEvent, setEditingEvent]     = useState(null)   // event id loaded into the form
+  const [savingEvent, setSavingEvent]       = useState(false)
+  const [eventError, setEventError]         = useState(null)
+  const [showPastEvents, setShowPastEvents] = useState(false)
+  const [googleUrl, setGoogleUrl]           = useState('')
+  const [googleInput, setGoogleInput]       = useState('')
+  const [savingGoogle, setSavingGoogle]     = useState(false)
+  const [googleMsg, setGoogleMsg]           = useState(null)   // { error: bool, text }
+  const eventFormRef                        = useRef(null)
+
   // Staff project topic reviews
   const [staffProjectSubs, setStaffProjectSubs] = useState([])
   const [staffFeedbacks, setStaffFeedbacks]     = useState({})
@@ -97,7 +119,11 @@ export default function AdminDashboard() {
       api.get('program-staff/tasks/'),
       api.get('admin/staff-project-topics/'),
       api.get('admin/staff-project-starters/'),
-    ]).then(([dash, t, ps, pst, top, tstem, st, sps, spst]) => {
+      api.get('teach-stem/calendar/'),
+    ]).then(([dash, t, ps, pst, top, tstem, st, sps, spst, cal]) => {
+      setCalEvents(cal.data.events)
+      setGoogleUrl(cal.data.google_calendar_embed_url)
+      setGoogleInput(cal.data.google_calendar_embed_url)
       setData(dash.data)
       setTasks(t.data)
       setProjectSubs(ps.data)
@@ -227,6 +253,80 @@ export default function AdminDashboard() {
       setTaskForm(BLANK_TASK)
     } catch { setTaskError('Something went wrong.') }
     finally { setSavingTask(false) }
+  }
+
+  const setPollOption = (i, value) =>
+    setPollForm(f => ({ ...f, options: f.options.map((o, j) => j === i ? value : o) }))
+
+  const addPoll = async (e) => {
+    e.preventDefault()
+    setPollError(null)
+    const options = pollForm.options.map(o => o.trim()).filter(Boolean)
+    if (!pollForm.title.trim()) { setPollError('A question is required.'); return }
+    if (options.length < 2) { setPollError('Add at least two answer options.'); return }
+    setSavingPoll(true)
+    try {
+      const { title, description, due_date } = pollForm
+      const { data: created } = await api.post('teach-stem/tasks/', { title, description, due_date, poll_options: options })
+      setTasks(prev => [...prev, created].sort(byDueDate))
+      setPollForm(BLANK_POLL)
+      setShowPollForm(false)
+    } catch (err) {
+      setPollError(err.response?.data?.error || 'Something went wrong.')
+    } finally { setSavingPoll(false) }
+  }
+
+  const saveEvent = async (e) => {
+    e.preventDefault()
+    setEventError(null)
+    if (!eventForm.title.trim() || !eventForm.date) { setEventError('Title and date are required.'); return }
+    setSavingEvent(true)
+    try {
+      if (editingEvent) {
+        const { data: updated } = await api.put(`teach-stem/calendar/events/${editingEvent}/`, eventForm)
+        setCalEvents(prev => prev.map(ev => ev.id === editingEvent ? updated : ev).sort(byEventDate))
+      } else {
+        const { data: created } = await api.post('teach-stem/calendar/events/', eventForm)
+        setCalEvents(prev => [...prev, created].sort(byEventDate))
+      }
+      setEventForm(BLANK_EVENT)
+      setEditingEvent(null)
+    } catch (err) {
+      setEventError(firstApiError(err))
+    } finally { setSavingEvent(false) }
+  }
+
+  const startEditEvent = (ev) => {
+    setEditingEvent(ev.id)
+    setEventError(null)
+    setEventForm({
+      title: ev.title, description: ev.description, date: ev.date, end_date: ev.end_date || '',
+      start_time: (ev.start_time || '').slice(0, 5), end_time: (ev.end_time || '').slice(0, 5),
+      location: ev.location, link: ev.link,
+    })
+    eventFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  const cancelEditEvent = () => { setEditingEvent(null); setEventForm(BLANK_EVENT); setEventError(null) }
+
+  const deleteEvent = async (id, title) => {
+    if (!window.confirm(`Delete event "${title}"?`)) return
+    await api.delete(`teach-stem/calendar/events/${id}/`)
+    setCalEvents(prev => prev.filter(ev => ev.id !== id))
+    if (editingEvent === id) cancelEditEvent()
+  }
+
+  const saveGoogleCalendar = async (url) => {
+    setSavingGoogle(true)
+    setGoogleMsg(null)
+    try {
+      const { data } = await api.put('teach-stem/calendar/google/', { url })
+      setGoogleUrl(data.google_calendar_embed_url)
+      setGoogleInput(data.google_calendar_embed_url)
+      setGoogleMsg({ error: false, text: data.google_calendar_embed_url ? 'Saved. Teachers will see this calendar.' : 'Google Calendar removed.' })
+    } catch (err) {
+      setGoogleMsg({ error: true, text: firstApiError(err) })
+    } finally { setSavingGoogle(false) }
   }
 
   const saveEdit = async (id) => {
@@ -1001,10 +1101,89 @@ export default function AdminDashboard() {
 
         {/* Teach STEM Tasks */}
         <section style={{ marginBottom: '2.5rem' }}>
-          <div className="section-title">Teach STEM Tasks</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+            <div className="section-title">Teach STEM Tasks</div>
+            {!showPollForm && (
+              <button onClick={() => setShowPollForm(true)} className="btn btn--teal btn--sm">Make a New Poll</button>
+            )}
+          </div>
           <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
-            Tasks posted here appear on every Teach STEM member's dashboard.
+            Tasks and polls posted here appear on every Teach STEM member's dashboard. Answering a poll completes it.
           </p>
+
+          {/* New poll form */}
+          {showPollForm && (
+            <div className="card" style={{ background: '#f8fffe', border: '1px dashed var(--teal)', marginBottom: '1rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--teal-dark)', marginBottom: '0.75rem' }}>
+                New Poll
+              </div>
+              <form onSubmit={addPoll}>
+                <input
+                  className="form-input"
+                  style={{ marginBottom: '0.5rem', fontWeight: 600 }}
+                  placeholder="Question (e.g. Which week works best for the spring workshop?)"
+                  value={pollForm.title}
+                  onChange={e => setPollForm(f => ({ ...f, title: e.target.value }))}
+                />
+                <textarea
+                  className="form-input"
+                  rows={2}
+                  style={{ marginBottom: '0.75rem', fontSize: '0.9rem' }}
+                  placeholder="Details (optional)"
+                  value={pollForm.description}
+                  onChange={e => setPollForm(f => ({ ...f, description: e.target.value }))}
+                />
+                <label className="form-label">Answer Options</label>
+                {pollForm.options.map((opt, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.4rem' }}>
+                    <input
+                      className="form-input"
+                      placeholder={`Option ${i + 1}`}
+                      value={opt}
+                      onChange={e => setPollOption(i, e.target.value)}
+                    />
+                    {pollForm.options.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setPollForm(f => ({ ...f, options: f.options.filter((_, j) => j !== i) }))}
+                        className="btn btn--ghost btn--sm"
+                        aria-label={`Remove option ${i + 1}`}
+                      >Remove</button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPollForm(f => ({ ...f, options: [...f.options, ''] }))}
+                  className="btn btn--outline btn--sm"
+                  style={{ marginBottom: '0.75rem' }}
+                >Add Option</button>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div>
+                    <label className="form-label">Due Date (optional)</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      style={{ width: 'auto' }}
+                      value={pollForm.due_date}
+                      onChange={e => setPollForm(f => ({ ...f, due_date: e.target.value }))}
+                    />
+                  </div>
+                  <button type="submit" className="btn btn--teal btn--sm" disabled={savingPoll}>
+                    {savingPoll ? 'Posting...' : 'Post Poll'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowPollForm(false); setPollForm(BLANK_POLL); setPollError(null) }}
+                    className="btn btn--outline btn--sm"
+                  >Cancel</button>
+                </div>
+                {pollError && (
+                  <p style={{ color: '#c62828', fontSize: '0.85rem', marginTop: '0.5rem' }}>{pollError}</p>
+                )}
+              </form>
+            </div>
+          )}
 
           {/* Existing tasks */}
           {tasks.length === 0 && (
@@ -1046,7 +1225,10 @@ export default function AdminDashboard() {
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: '0.97rem', marginBottom: '0.15rem' }}>{task.title}</div>
+                    <div style={{ fontWeight: 800, fontSize: '0.97rem', marginBottom: '0.15rem' }}>
+                      {task.is_poll && <span className="badge badge--teal" style={{ marginRight: '0.4rem' }}>Poll</span>}
+                      {task.title}
+                    </div>
                     {task.description && (
                       <p className="text-muted text-sm" style={{ marginBottom: '0.3rem' }}>{task.description}</p>
                     )}
@@ -1055,6 +1237,7 @@ export default function AdminDashboard() {
                         Due {formatDate(task.due_date)}{isOverdue(task.due_date) ? ' — overdue' : ''}
                       </span>
                     )}
+                    {task.is_poll && <PollResults task={task} />}
                   </div>
                   <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
                     <button
@@ -1108,6 +1291,156 @@ export default function AdminDashboard() {
                 <p style={{ color: '#c62828', fontSize: '0.85rem', marginTop: '0.5rem' }}>{taskError}</p>
               )}
             </form>
+          </div>
+        </section>
+
+        {/* Teach STEM Calendar */}
+        <section style={{ marginBottom: '2.5rem' }}>
+          <div className="section-title">Teach STEM Calendar</div>
+          <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
+            Events posted here appear on the calendar on every Teach STEM member's dashboard.
+          </p>
+
+          {(() => {
+            const today = todayKey()
+            const upcoming = calEvents.filter(ev => (ev.end_date || ev.date) >= today)
+            const past = calEvents.filter(ev => (ev.end_date || ev.date) < today).reverse()
+            const shown = showPastEvents ? [...upcoming, ...past] : upcoming
+            return (
+              <>
+                {shown.length === 0 && (
+                  <div className="empty" style={{ marginBottom: '1rem' }}>
+                    <p style={{ fontStyle: 'italic' }}>No upcoming events.</p>
+                  </div>
+                )}
+                {shown.map(ev => {
+                  const isPast = (ev.end_date || ev.date) < today
+                  return (
+                    <div key={ev.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem', borderLeft: `4px solid ${isPast ? '#ccc' : 'var(--teal)'}`, opacity: isPast ? 0.7 : 1 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}><EventDetails event={ev} /></div>
+                      <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
+                        <button onClick={() => startEditEvent(ev)} className="btn btn--outline btn--sm">Edit</button>
+                        <button onClick={() => deleteEvent(ev.id, ev.title)} className="btn btn--danger btn--sm">Delete</button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {past.length > 0 && (
+                  <button
+                    onClick={() => setShowPastEvents(s => !s)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'underline', padding: 0, marginBottom: '1rem' }}
+                  >
+                    {showPastEvents ? 'Hide' : 'Show'} past events ({past.length})
+                  </button>
+                )}
+              </>
+            )
+          })()}
+
+          {/* Add / edit event form */}
+          <div ref={eventFormRef} className="card" style={{ background: '#f8fffe', border: '1px dashed var(--teal)', marginBottom: '1rem' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--teal-dark)', marginBottom: '0.75rem' }}>
+              {editingEvent ? 'Edit Event' : 'Add New Event'}
+            </div>
+            <form onSubmit={saveEvent}>
+              <input
+                className="form-input"
+                style={{ marginBottom: '0.5rem', fontWeight: 600 }}
+                placeholder="Event title"
+                value={eventForm.title}
+                onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))}
+              />
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                <div>
+                  <label className="form-label">Date</label>
+                  <input type="date" className="form-input" style={{ width: 'auto' }} value={eventForm.date}
+                    onChange={e => setEventForm(f => ({ ...f, date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">End Date (multi-day, optional)</label>
+                  <input type="date" className="form-input" style={{ width: 'auto' }} value={eventForm.end_date} min={eventForm.date || undefined}
+                    onChange={e => setEventForm(f => ({ ...f, end_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Start Time (optional)</label>
+                  <input type="time" className="form-input" style={{ width: 'auto' }} value={eventForm.start_time}
+                    onChange={e => setEventForm(f => ({ ...f, start_time: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">End Time (optional)</label>
+                  <input type="time" className="form-input" style={{ width: 'auto' }} value={eventForm.end_time}
+                    onChange={e => setEventForm(f => ({ ...f, end_time: e.target.value }))} />
+                </div>
+              </div>
+              <input
+                className="form-input"
+                style={{ marginBottom: '0.5rem' }}
+                placeholder="Location (optional)"
+                value={eventForm.location}
+                onChange={e => setEventForm(f => ({ ...f, location: e.target.value }))}
+              />
+              <input
+                type="url"
+                className="form-input"
+                style={{ marginBottom: '0.5rem' }}
+                placeholder="Link, e.g. Zoom or sign-up form (optional)"
+                value={eventForm.link}
+                onChange={e => setEventForm(f => ({ ...f, link: e.target.value }))}
+              />
+              <textarea
+                className="form-input"
+                rows={2}
+                style={{ marginBottom: '0.75rem', fontSize: '0.9rem' }}
+                placeholder="Details (optional)"
+                value={eventForm.description}
+                onChange={e => setEventForm(f => ({ ...f, description: e.target.value }))}
+              />
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button type="submit" className="btn btn--teal btn--sm" disabled={savingEvent}>
+                  {savingEvent ? 'Saving...' : editingEvent ? 'Save Changes' : 'Add Event'}
+                </button>
+                {editingEvent && <button type="button" onClick={cancelEditEvent} className="btn btn--outline btn--sm">Cancel</button>}
+              </div>
+              {eventError && (
+                <p style={{ color: '#c62828', fontSize: '0.85rem', marginTop: '0.5rem' }}>{eventError}</p>
+              )}
+            </form>
+          </div>
+
+          {/* Google Calendar link */}
+          <div className="card">
+            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--teal-dark)', marginBottom: '0.3rem' }}>
+              Google Calendar (optional)
+            </div>
+            <p className="text-muted text-sm" style={{ marginBottom: '0.6rem' }}>
+              To also show a Google Calendar, open it in Google Calendar, go to Settings and sharing, turn on
+              "Make available to public", then copy the "Embed code" or "Public URL to this calendar" and paste it here.
+            </p>
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <input
+                className="form-input"
+                style={{ flex: 1, minWidth: 220 }}
+                placeholder="Paste a Google Calendar link or embed code"
+                value={googleInput}
+                onChange={e => setGoogleInput(e.target.value)}
+              />
+              <button onClick={() => saveGoogleCalendar(googleInput)} className="btn btn--teal btn--sm" disabled={savingGoogle}>
+                {savingGoogle ? 'Saving...' : 'Save'}
+              </button>
+              {googleUrl && (
+                <button onClick={() => saveGoogleCalendar('')} className="btn btn--danger btn--sm" disabled={savingGoogle}>Remove</button>
+              )}
+            </div>
+            {googleMsg && (
+              <p style={{ color: googleMsg.error ? '#c62828' : 'var(--teal-dark)', fontSize: '0.85rem', marginTop: '0.5rem', marginBottom: 0 }}>
+                {googleMsg.text}
+              </p>
+            )}
+            {googleUrl && (
+              <a href={googleUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', fontSize: '0.85rem', fontWeight: 700, marginTop: '0.5rem' }}>
+                Preview the linked calendar
+              </a>
+            )}
           </div>
         </section>
 
@@ -1426,6 +1759,44 @@ function ReviewField({ label, children }) {
       <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.92rem', color: '#333' }}>{children}</div>
     </div>
   )
+}
+
+function PollResults({ task }) {
+  const total = task.total_votes || 0
+  return (
+    <div style={{ marginTop: '0.6rem' }}>
+      {task.poll_options.map(o => {
+        const pct = total ? Math.round((o.votes / total) * 100) : 0
+        return (
+          <div key={o.id} style={{ marginBottom: '0.4rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', fontSize: '0.85rem' }}>
+              <span>{o.text}</span>
+              <span className="text-muted" style={{ flexShrink: 0 }}>{o.votes} ({pct}%)</span>
+            </div>
+            <div style={{ height: 6, borderRadius: 3, background: 'var(--teal-light)', overflow: 'hidden' }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: 'var(--teal)' }} />
+            </div>
+          </div>
+        )
+      })}
+      <div className="text-muted" style={{ fontSize: '0.78rem' }}>
+        {total} {total === 1 ? 'response' : 'responses'}
+      </div>
+    </div>
+  )
+}
+
+function byEventDate(a, b) {
+  return (a.date + (a.start_time || '')).localeCompare(b.date + (b.start_time || ''))
+}
+
+// Pulls a readable message out of a DRF error response ({error} or {field: [msg]}).
+function firstApiError(err) {
+  const data = err.response?.data
+  if (!data) return 'Something went wrong.'
+  if (typeof data.error === 'string') return data.error
+  const first = Object.values(data)[0]
+  return (Array.isArray(first) ? first[0] : first) || 'Something went wrong.'
 }
 
 function byDueDate(a, b) {

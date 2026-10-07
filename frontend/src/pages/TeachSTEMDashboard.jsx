@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
+import { MonthCalendar, GoogleCalendarEmbed, EventDetails, todayKey } from '../components/TeachSTEMCalendar'
 
 function DashCard({ to, title, description, color }) {
   return (
@@ -30,14 +31,58 @@ function formatDate(dateStr) {
     .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function PollChoices({ task, onVote, submitLabel, onCancel }) {
+  const [choice, setChoice] = useState(task.my_vote)
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState(null)
+
+  const submit = async () => {
+    setSaving(true)
+    setError(null)
+    try { await onVote(task.id, choice) }
+    catch { setError('Could not save your answer. Please try again.') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ marginTop: '0.5rem' }}>
+      {task.poll_options.map(o => (
+        <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', marginBottom: '0.3rem', cursor: 'pointer' }}>
+          <input
+            type="radio"
+            name={`poll-${task.id}`}
+            checked={choice === o.id}
+            onChange={() => setChoice(o.id)}
+          />
+          {o.text}
+        </label>
+      ))}
+      <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem' }}>
+        <button onClick={submit} disabled={!choice || saving} className="btn btn--teal btn--sm">
+          {saving ? 'Saving...' : submitLabel}
+        </button>
+        {onCancel && <button onClick={onCancel} className="btn btn--outline btn--sm">Cancel</button>}
+      </div>
+      {error && <p style={{ color: '#c62828', fontSize: '0.85rem', marginTop: '0.4rem', marginBottom: 0 }}>{error}</p>}
+    </div>
+  )
+}
+
 export default function TeachSTEMDashboard() {
   const [tasks, setTasks]                       = useState([])
   const [toggling, setToggling]                 = useState({})
   const [showDone, setShowDone]                 = useState(false)
   const [assignedActivities, setAssignedActivities] = useState([])
+  const [changingVote, setChangingVote]         = useState(null)   // poll task id being re-answered
+  const [calendar, setCalendar]                 = useState({ events: [], google_calendar_embed_url: '' })
+  const [calendarView, setCalendarView]         = useState('events')   // 'events' | 'google'
 
   useEffect(() => {
     api.get('teach-stem/tasks/').then(r => setTasks(r.data)).catch(() => {})
+    api.get('teach-stem/calendar/').then(r => {
+      setCalendar(r.data)
+      if (r.data.events.length === 0 && r.data.google_calendar_embed_url) setCalendarView('google')
+    }).catch(() => {})
     api.get('teach-stem/assigned-activities/').then(r => setAssignedActivities(r.data)).catch(() => {})
   }, [])
 
@@ -50,6 +95,16 @@ export default function TeachSTEMDashboard() {
       setToggling(t => ({ ...t, [taskId]: false }))
     }
   }
+
+  const vote = async (taskId, optionId) => {
+    const { data } = await api.post(`teach-stem/tasks/${taskId}/vote/`, { option: optionId })
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: data.completed, my_vote: data.my_vote } : t))
+    setChangingVote(null)
+  }
+
+  const today = todayKey()
+  const upcomingEvents = calendar.events.filter(e => (e.end_date || e.date) >= today).slice(0, 3)
+  const hasGoogle = Boolean(calendar.google_calendar_embed_url)
 
   const pending   = tasks.filter(t => !t.completed)
   const completed = tasks.filter(t => t.completed)
@@ -101,7 +156,10 @@ export default function TeachSTEMDashboard() {
             return (
               <div key={task.id} className="card" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', marginBottom: '0.65rem', borderLeft: `4px solid ${overdue ? '#c62828' : 'var(--teal)'}` }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: '0.97rem', marginBottom: task.description ? '0.2rem' : 0 }}>{task.title}</div>
+                  <div style={{ fontWeight: 800, fontSize: '0.97rem', marginBottom: task.description ? '0.2rem' : 0 }}>
+                    {task.is_poll && <span className="badge badge--teal" style={{ marginRight: '0.4rem' }}>Poll</span>}
+                    {task.title}
+                  </div>
                   {task.description && (
                     <p className="text-muted text-sm" style={{ marginBottom: '0.3rem' }}>{task.description}</p>
                   )}
@@ -110,20 +168,46 @@ export default function TeachSTEMDashboard() {
                       Due {formatDate(task.due_date)}{overdue ? ' — overdue' : ''}
                     </span>
                   )}
+                  {task.is_poll && <PollChoices task={task} onVote={vote} submitLabel="Submit Answer" />}
                 </div>
-                <button
-                  onClick={() => markComplete(task.id)}
-                  disabled={toggling[task.id]}
-                  className="btn btn--outline btn--sm"
-                  style={{ flexShrink: 0 }}
-                >
-                  {toggling[task.id] ? '...' : 'Mark Complete'}
-                </button>
+                {!task.is_poll && (
+                  <button
+                    onClick={() => markComplete(task.id)}
+                    disabled={toggling[task.id]}
+                    className="btn btn--outline btn--sm"
+                    style={{ flexShrink: 0 }}
+                  >
+                    {toggling[task.id] ? '...' : 'Mark Complete'}
+                  </button>
+                )}
               </div>
             )
           })}
 
-          {showDone && completed.map(task => (
+          {showDone && completed.map(task => task.is_poll ? (
+            <div key={task.id} className="card" style={{ marginBottom: '0.65rem', borderLeft: '4px solid #ccc', opacity: changingVote === task.id ? 1 : 0.65 }}>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.97rem', color: 'var(--text-muted)' }}>{task.title}</div>
+                  {changingVote !== task.id && (
+                    <p className="text-muted text-sm" style={{ marginBottom: 0 }}>
+                      Your answer: {task.poll_options.find(o => o.id === task.my_vote)?.text}
+                    </p>
+                  )}
+                </div>
+                {changingVote !== task.id && (
+                  <button
+                    onClick={() => setChangingVote(task.id)}
+                    className="btn btn--outline btn--sm"
+                    style={{ flexShrink: 0, fontSize: '0.78rem' }}
+                  >Change Answer</button>
+                )}
+              </div>
+              {changingVote === task.id && (
+                <PollChoices task={task} onVote={vote} submitLabel="Save Answer" onCancel={() => setChangingVote(null)} />
+              )}
+            </div>
+          ) : (
             <div key={task.id} className="card" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', marginBottom: '0.65rem', borderLeft: '4px solid #ccc', opacity: 0.65 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: '0.97rem', textDecoration: 'line-through', color: 'var(--text-muted)' }}>{task.title}</div>
@@ -141,6 +225,47 @@ export default function TeachSTEMDashboard() {
               </button>
             </div>
           ))}
+        </div>
+
+        {/* Calendar */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ color: 'var(--teal-dark)', marginBottom: '0.25rem' }}>Calendar</h2>
+            <p className="text-muted" style={{ marginBottom: 0 }}>Upcoming Teach STEM events and dates.</p>
+          </div>
+          {hasGoogle && calendar.events.length > 0 && (
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.35rem' }}>
+              <button
+                onClick={() => setCalendarView('events')}
+                className={`btn btn--sm ${calendarView === 'events' ? 'btn--teal' : 'btn--outline'}`}
+              >Program Events</button>
+              <button
+                onClick={() => setCalendarView('google')}
+                className={`btn btn--sm ${calendarView === 'google' ? 'btn--teal' : 'btn--outline'}`}
+              >Google Calendar</button>
+            </div>
+          )}
+        </div>
+        <div style={{ marginBottom: '2rem' }}>
+          {calendarView === 'google' && hasGoogle ? (
+            <GoogleCalendarEmbed url={calendar.google_calendar_embed_url} />
+          ) : calendar.events.length === 0 ? (
+            <div className="empty"><p style={{ fontStyle: 'italic' }}>No events scheduled yet.</p></div>
+          ) : (
+            <>
+              {upcomingEvents.length > 0 && (
+                <div className="card" style={{ marginBottom: '0.75rem', borderLeft: '4px solid var(--teal)' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '0.6rem' }}>
+                    Coming up
+                  </div>
+                  {upcomingEvents.map(e => (
+                    <div key={e.id} style={{ marginBottom: '0.7rem' }}><EventDetails event={e} /></div>
+                  ))}
+                </div>
+              )}
+              <MonthCalendar events={calendar.events} />
+            </>
+          )}
         </div>
 
         {/* Project Planning Resources */}

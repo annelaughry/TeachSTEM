@@ -4,7 +4,7 @@ from core.models import (
     Activity, ActivitySection, ActivityPrompt, SectionLink,
     GradeLevel, Standard, Concept, Classroom, Module, ModuleActivity,
     TeacherProfile, StudentResponse, TeacherFeedback, ActivityFile,
-    TeacherProjectReflection, ReflectionFile, TeachSTEMProfile, TeachSTEMTask, TeachSTEMTaskCompletion,
+    TeacherProjectReflection, ReflectionFile, TeachSTEMProfile, TeachSTEMTask, TeachSTEMTaskCompletion, TeachSTEMPollOption, TeachSTEMCalendarEvent,
     ProjectTopicSubmission, ProjectStarter, TopicSuggestion, TStemSurveyResponse, TeacherSurveyResponse,
     ForumThread, ForumReply,
     ThreeTwoOneAssignment, ThreeTwoOneResponse,
@@ -361,17 +361,91 @@ class ForumThreadDetailSerializer(ForumThreadListSerializer):
 
 class TeachSTEMTaskSerializer(serializers.ModelSerializer):
     completed = serializers.SerializerMethodField()
+    is_poll = serializers.SerializerMethodField()
+    poll_options = serializers.SerializerMethodField()
+    my_vote = serializers.SerializerMethodField()
+    total_votes = serializers.SerializerMethodField()
 
     class Meta:
         model = TeachSTEMTask
-        fields = ['id', 'title', 'description', 'due_date', 'created_at', 'completed']
+        fields = ['id', 'title', 'description', 'due_date', 'created_at', 'completed',
+                  'is_poll', 'poll_options', 'my_vote', 'total_votes']
         read_only_fields = ['id', 'created_at', 'completed']
 
-    def get_completed(self, obj):
+    def to_internal_value(self, data):
+        # The admin form sends '' when no due date is picked; treat that as "no due date".
+        if data.get('due_date') == '':
+            data = data.copy()
+            data['due_date'] = None
+        return super().to_internal_value(data)
+
+    def _user(self):
         request = self.context.get('request')
-        if not request or not request.user.is_authenticated:
+        return request.user if request and request.user.is_authenticated else None
+
+    def _is_admin(self):
+        user = self._user()
+        return bool(user and (user.is_staff or user.is_superuser))
+
+    def get_completed(self, obj):
+        user = self._user()
+        if not user:
             return False
-        return obj.completions.filter(teacher=request.user).exists()
+        return any(c.teacher_id == user.id for c in obj.completions.all())
+
+    def get_is_poll(self, obj):
+        return len(obj.poll_options.all()) > 0
+
+    def get_poll_options(self, obj):
+        # Vote counts are only shown to admins so teachers answer without being swayed.
+        show_counts = self._is_admin()
+        options = []
+        for o in obj.poll_options.all():
+            item = {'id': o.id, 'text': o.text}
+            if show_counts:
+                item['votes'] = sum(1 for v in obj.poll_votes.all() if v.option_id == o.id)
+            options.append(item)
+        return options
+
+    def get_my_vote(self, obj):
+        user = self._user()
+        if not user:
+            return None
+        return next((v.option_id for v in obj.poll_votes.all() if v.teacher_id == user.id), None)
+
+    def get_total_votes(self, obj):
+        return len(obj.poll_votes.all()) if self._is_admin() else None
+
+
+class TeachSTEMCalendarEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TeachSTEMCalendarEvent
+        fields = ['id', 'title', 'description', 'date', 'end_date', 'start_time', 'end_time', 'location', 'link']
+        read_only_fields = ['id']
+
+    def to_internal_value(self, data):
+        # The admin form sends '' for optional fields left empty.
+        blanks = [f for f in ('end_date', 'start_time', 'end_time') if data.get(f) == '']
+        if blanks:
+            data = data.copy()
+            for f in blanks:
+                data[f] = None
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        date = attrs.get('date', getattr(self.instance, 'date', None))
+        end_date = attrs.get('end_date', getattr(self.instance, 'end_date', None))
+        if end_date and date and end_date < date:
+            raise serializers.ValidationError({'end_date': 'End date cannot be before the start date.'})
+        if end_date == date:
+            attrs['end_date'] = None
+        start = attrs.get('start_time', getattr(self.instance, 'start_time', None))
+        end = attrs.get('end_time', getattr(self.instance, 'end_time', None))
+        if end and not start:
+            raise serializers.ValidationError({'end_time': 'Add a start time before an end time.'})
+        if start and end and end <= start and not attrs.get('end_date', getattr(self.instance, 'end_date', None)):
+            raise serializers.ValidationError({'end_time': 'End time must be after the start time.'})
+        return attrs
 
 
 class TeachSTEMProfileSerializer(serializers.ModelSerializer):

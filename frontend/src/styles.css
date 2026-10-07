@@ -475,6 +475,52 @@ footer {
   gap: 1rem;
 }
 
+/* ── Month calendar (Teach STEM) ── */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.cal-weekday {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-bottom: 0.25rem;
+}
+.cal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-height: 78px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.cal-day:hover { border-color: var(--teal); }
+.cal-day--today { background: var(--teal-light); }
+.cal-day--selected { border: 2px solid var(--teal-dark); }
+.cal-day-num { font-size: 0.78rem; font-weight: 700; }
+.cal-chip {
+  font-size: 0.7rem;
+  line-height: 1.3;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--teal);
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-more { font-size: 0.68rem; color: var(--text-muted); }
+.cal-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); align-self: center; }
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .nav { padding: 0 1rem; }
@@ -521,4 +567,8 @@ footer {
   .module-row__num { text-align: left; }
 
   .grid-2 { grid-template-columns: 1fr; }
+
+  .cal-day { min-height: 44px; align-items: center; }
+  .cal-chip, .cal-more { display: none; }
+  .cal-dot { display: block; }
 }
