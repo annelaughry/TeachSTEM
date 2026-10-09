@@ -38,6 +38,7 @@ export default function ActivityBuilder() {
   const [newFiles, setNewFiles]     = useState([])        // [{file: File, label: string}]
   const fileInputRef                = useRef(null)
   const [actStatus, setActStatus]   = useState('draft')
+  const [loadedPromptIds, setLoadedPromptIds] = useState([])   // prompts that existed when the page loaded
   const [sourceTitle, setSourceTitle] = useState(null)
   const [gradeLevels, setGradeLevels] = useState([])
   const [activityTypes, setActTypes] = useState([])
@@ -63,12 +64,14 @@ export default function ActivityBuilder() {
       setExistingFiles(a.handout_files || [])
       setActStatus(a.status)
       setSourceTitle(a.source_activity_title || null)
+      setLoadedPromptIds(a.sections?.flatMap(sec => sec.prompts.map(p => p.id)) || [])
       if (a.sections?.length) {
         setSections(a.sections.map(sec => ({
           _k: nextKey(),
+          id: sec.id,
           title: sec.title || '',
           prompts: sec.prompts.length
-            ? sec.prompts.map(p => ({ _k: nextKey(), text: p.text || '', prompt_type: p.prompt_type || 'student', response_type: p.response_type || 'text', table_headers: p.table_headers || [], table_row_labels: p.table_row_labels || [], video_url: p.video_url || '' }))
+            ? sec.prompts.map(p => ({ _k: nextKey(), id: p.id, text: p.text || '', prompt_type: p.prompt_type || 'student', response_type: p.response_type || 'text', table_headers: p.table_headers || [], table_row_labels: p.table_row_labels || [], video_url: p.video_url || '' }))
             : [mkPrompt()],
           links: sec.links.map(l => ({ _k: nextKey(), url: l.url, label: l.label || '' })),
         })))
@@ -162,9 +165,12 @@ export default function ActivityBuilder() {
     fd.append('activity_type', actType)
     fd.append('duration_minutes', duration || 0)
     gradeIds.forEach(gid => fd.append('grade_levels', gid))
+    // Existing sections/prompts keep their ids so the server updates them in place
+    // instead of recreating them (which would delete students' answers).
     fd.append('sections_json', JSON.stringify(sections.map(sec => ({
+      id: sec.id,
       title: sec.title,
-      prompts: sec.prompts.map(p => ({ text: p.text, prompt_type: p.prompt_type, response_type: p.response_type, table_headers: p.table_headers, table_row_labels: p.table_row_labels, video_url: p.video_url || '' })),
+      prompts: sec.prompts.map(p => ({ id: p.id, text: p.text, prompt_type: p.prompt_type, response_type: p.response_type, table_headers: p.table_headers, table_row_labels: p.table_row_labels, video_url: p.video_url || '' })),
       links: sec.links.map(l => ({ url: l.url, label: l.label })),
     }))))
     fd.append('video_url', videoUrl)
@@ -179,8 +185,18 @@ export default function ActivityBuilder() {
     return fd
   }
 
+  const isPublished = isEdit && actStatus === 'approved'
+
   const save = async (submitForReview = false) => {
     if (!title.trim()) { setErrors(['Title is required.']); return }
+    if (isPublished) {
+      const keptIds = new Set(sections.flatMap(sec => sec.prompts.map(p => p.id)).filter(Boolean))
+      const removed = loadedPromptIds.filter(pid => !keptIds.has(pid)).length
+      if (removed > 0 && !window.confirm(
+        `You removed ${removed} ${removed === 1 ? 'question' : 'questions'} from this published activity. ` +
+        `Any student answers, feedback and scores for ${removed === 1 ? 'it' : 'them'} will be permanently deleted. Save anyway?`
+      )) return
+    }
     setErrors([]); setSaving(true)
     try {
       const fd = buildFd()
@@ -191,7 +207,9 @@ export default function ActivityBuilder() {
         resp = await api.post('activities/create/', fd)
       }
       const actId = resp.data.id
-      if (submitForReview) {
+      if (isPublished) {
+        navigate(`/activity/${actId}`)
+      } else if (submitForReview) {
         await api.post(`activities/${actId}/submit/`)
         navigate('/teacher')
       } else {
@@ -204,7 +222,8 @@ export default function ActivityBuilder() {
     }
   }
 
-  const isLocked = isEdit && actStatus === 'pending'
+  // Admins can edit at any stage; teachers can't edit while their activity is under review.
+  const isLocked = isEdit && actStatus === 'pending' && !isAdmin
 
   return (
     <div className="page">
@@ -223,6 +242,12 @@ export default function ActivityBuilder() {
           {actStatus === 'rejected' && (
             <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '0.45rem 0.9rem', marginTop: '0.6rem', fontSize: '0.9rem' }}>
               This activity was rejected. Make edits and resubmit.
+            </div>
+          )}
+          {isPublished && (
+            <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '0.45rem 0.9rem', marginTop: '0.6rem', fontSize: '0.9rem' }}>
+              This activity is published in the library. Your changes go live as soon as you save. Editing a question keeps
+              students' existing answers; removing a question deletes them.
             </div>
           )}
           {isLocked && (
@@ -568,7 +593,15 @@ export default function ActivityBuilder() {
         </div>
 
         {/* Action bar */}
-        {!isLocked && (
+        {isPublished && (
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.75rem', flexWrap: 'wrap', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+            <Link to={`/activity/${id}`} className="btn btn--ghost">Cancel</Link>
+            <button type="button" onClick={() => save(false)} className="btn btn--primary" disabled={saving}>
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        )}
+        {!isLocked && !isPublished && (
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.75rem', flexWrap: 'wrap', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
             <Link to="/teacher" className="btn btn--ghost">Cancel</Link>
             <button type="button" onClick={() => save(false)} className="btn btn--outline" disabled={saving}>

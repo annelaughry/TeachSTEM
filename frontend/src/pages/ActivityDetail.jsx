@@ -203,6 +203,9 @@ export default function ActivityDetail() {
             </p>
           )}
           <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+            {(user?.is_staff || user?.is_superuser) && (
+              <Link to={`/teacher/activity/${id}/edit`} className="btn btn--teal">Edit Activity</Link>
+            )}
             {isTeacher && (
               <>
                 <Link to={`/activity/${id}/work`} className="btn btn--primary">View as Student</Link>

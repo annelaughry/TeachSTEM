@@ -242,3 +242,70 @@ class NotificationTests(TestCase):
         r = self.as_user(self.admin).get('/api/admin/dashboard/')
         self.assertEqual(r.data['teach_stem_missing_email'], ['noemail'])
 
+
+import json as _json
+
+from .models import Activity, ActivityPrompt, ActivitySection, StudentResponse
+
+
+class AdminEditPublishedActivityTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user('admin', password='x', is_staff=True)
+        self.author = User.objects.create_user('author', password='x')
+        TeacherProfile.objects.create(user=self.author, is_approved=True)
+        self.student = User.objects.create_user('student', password='x')
+        self.activity = Activity.objects.create(title='Bridges', created_by=self.author, status='approved')
+        self.sec1 = ActivitySection.objects.create(activity=self.activity, title='Plan', order=0)
+        self.sec2 = ActivitySection.objects.create(activity=self.activity, title='Build', order=1)
+        self.q1 = ActivityPrompt.objects.create(section=self.sec1, text='What will you build?', order=0)
+        self.q2 = ActivityPrompt.objects.create(section=self.sec2, text='How did it go?', order=0)
+        StudentResponse.objects.create(student=self.student, prompt=self.q1, response_text='A truss bridge')
+        StudentResponse.objects.create(student=self.student, prompt=self.q2, response_text='It held 2kg')
+        self.client = APIClient()
+
+    def edit(self, user, sections, **extra):
+        self.client.force_authenticate(user)
+        return self.client.patch(f'/api/activities/{self.activity.id}/edit/',
+                                 {'title': 'Bridges', 'sections_json': _json.dumps(sections), **extra}, format='multipart')
+
+    def payload(self, q1_text='What will you build?'):
+        return [
+            {'id': self.sec1.id, 'title': 'Plan', 'prompts': [{'id': self.q1.id, 'text': q1_text}], 'links': []},
+            {'id': self.sec2.id, 'title': 'Build', 'prompts': [{'id': self.q2.id, 'text': 'How did it go?'}], 'links': []},
+        ]
+
+    def test_admin_edit_keeps_student_answers(self):
+        r = self.edit(self.admin, self.payload(q1_text='What will you build, and why?'), description='Updated')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.q1.refresh_from_db()
+        self.assertEqual(self.q1.text, 'What will you build, and why?')
+        self.assertEqual(StudentResponse.objects.count(), 2)
+        self.activity.refresh_from_db()
+        self.assertEqual(self.activity.status, 'approved')
+        self.assertEqual(self.activity.description, 'Updated')
+
+    def test_adding_and_reordering_keeps_answers(self):
+        p = self.payload()
+        p.reverse()
+        p.append({'title': 'Reflect', 'prompts': [{'text': 'What would you change?'}], 'links': []})
+        self.edit(self.admin, p)
+        self.assertEqual(StudentResponse.objects.count(), 2)
+        self.assertEqual(list(self.activity.sections.order_by('order').values_list('title', flat=True)), ['Build', 'Plan', 'Reflect'])
+
+    def test_removing_a_question_deletes_only_its_answers(self):
+        p = self.payload()
+        p[1]['prompts'] = [{'text': 'A brand-new question'}]
+        self.edit(self.admin, p)
+        self.assertFalse(ActivityPrompt.objects.filter(id=self.q2.id).exists())
+        self.assertEqual(list(StudentResponse.objects.values_list('response_text', flat=True)), ['A truss bridge'])
+
+    def test_author_still_cannot_edit_published_activity(self):
+        self.assertEqual(self.edit(self.author, self.payload(q1_text='changed')).status_code, 403)
+
+    def test_ids_from_another_activity_are_ignored(self):
+        other = Activity.objects.create(title='Other', created_by=self.admin)
+        self.client.force_authenticate(self.admin)
+        self.client.patch(f'/api/activities/{other.id}/edit/', {'title': 'Other', 'sections_json': _json.dumps(self.payload(q1_text='hijack'))}, format='multipart')
+        self.q1.refresh_from_db()
+        self.assertEqual(self.q1.text, 'What will you build?')
+        self.assertEqual(StudentResponse.objects.count(), 2)

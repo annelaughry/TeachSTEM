@@ -468,56 +468,89 @@ def _save_handout_files(activity, request):
         )
 
 
+def _json_list(value):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except Exception:
+            return []
+    return value or []
+
+
+def _as_id(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _save_sections_from_json(activity, sections_data):
-    """Save sections/prompts/links from a JSON structure sent by the React builder."""
-    activity.sections.all().delete()
-    for i, sec in enumerate(sections_data):
-        section = ActivitySection.objects.create(
-            activity=activity, title=sec.get('title', ''), order=i
-        )
-        for j, p in enumerate(sec.get('prompts', [])):
-            prompt_text = p.get('text', '').strip()
-            prompt_type = p.get('prompt_type', 'student')
-            response_type = p.get('response_type', 'text')
-            video_url = p.get('video_url', '').strip() if isinstance(p.get('video_url'), str) else ''
-            if prompt_text or response_type == 'table' or prompt_type == 'video_embed':
-                try:
-                    table_headers = p.get('table_headers', []) or []
-                    if isinstance(table_headers, str):
-                        table_headers = json.loads(table_headers)
-                except Exception:
-                    table_headers = []
-                try:
-                    table_row_labels = p.get('table_row_labels', []) or []
-                    if isinstance(table_row_labels, str):
-                        table_row_labels = json.loads(table_row_labels)
-                except Exception:
-                    table_row_labels = []
-                ActivityPrompt.objects.create(
+    """Save sections/prompts/links from a JSON structure sent by the React builder.
+
+    Sections and prompts that carry an existing `id` are updated in place rather than deleted and
+    recreated: student responses, teacher feedback, scores and classroom points hang off them and are
+    cascade-deleted with them. Only sections/prompts the editor actually removed are deleted."""
+    with transaction.atomic():
+        existing_sections = {s.id: s for s in activity.sections.all()}
+        existing_prompts = {
+            p.id: p for p in ActivityPrompt.objects.filter(section__activity=activity)
+        }
+        kept_section_ids, kept_prompt_ids = set(), set()
+
+        for i, sec in enumerate(sections_data):
+            section = existing_sections.get(_as_id(sec.get('id')))
+            if section and section.id not in kept_section_ids:
+                section.title = sec.get('title', '')
+                section.order = i
+                section.save(update_fields=['title', 'order'])
+            else:
+                section = ActivitySection.objects.create(activity=activity, title=sec.get('title', ''), order=i)
+            kept_section_ids.add(section.id)
+
+            order = 0
+            for p in sec.get('prompts', []):
+                prompt_text = p.get('text', '').strip()
+                prompt_type = p.get('prompt_type', 'student')
+                response_type = p.get('response_type', 'text')
+                video_url = p.get('video_url', '').strip() if isinstance(p.get('video_url'), str) else ''
+                if not (prompt_text or response_type == 'table' or prompt_type == 'video_embed'):
+                    continue
+                fields = dict(
                     section=section,
                     text=prompt_text,
                     prompt_type=prompt_type,
                     response_type=response_type,
-                    table_headers=table_headers,
-                    table_row_labels=table_row_labels,
+                    table_headers=_json_list(p.get('table_headers', [])),
+                    table_row_labels=_json_list(p.get('table_row_labels', [])),
                     video_url=video_url,
-                    order=j,
+                    order=order,
                 )
-        for k, lnk in enumerate(sec.get('links', [])):
-            url = lnk.get('url', '').strip()
-            if url:
-                SectionLink.objects.create(
-                    section=section, url=url,
-                    label=lnk.get('label', ''), order=k,
-                )
-        # Save standard codes
-        standard_codes = sec.get('standard_codes', [])
-        for code in standard_codes:
-            try:
-                std = Standard.objects.get(code=code.strip())
-                activity.standards.add(std)
-            except Standard.DoesNotExist:
-                pass
+                prompt = existing_prompts.get(_as_id(p.get('id')))
+                if prompt and prompt.id not in kept_prompt_ids:
+                    for name, value in fields.items():
+                        setattr(prompt, name, value)
+                    prompt.save()
+                else:
+                    prompt = ActivityPrompt.objects.create(**fields)
+                kept_prompt_ids.add(prompt.id)
+                order += 1
+
+            # Links have nothing attached to them, so they are simply replaced.
+            section.links.all().delete()
+            for k, lnk in enumerate(sec.get('links', [])):
+                url = lnk.get('url', '').strip()
+                if url:
+                    SectionLink.objects.create(section=section, url=url, label=lnk.get('label', ''), order=k)
+
+            # Save standard codes
+            for code in sec.get('standard_codes', []):
+                try:
+                    activity.standards.add(Standard.objects.get(code=code.strip()))
+                except Standard.DoesNotExist:
+                    pass
+
+        ActivityPrompt.objects.filter(section__activity=activity).exclude(id__in=kept_prompt_ids).delete()
+        activity.sections.exclude(id__in=kept_section_ids).delete()
 
 
 @api_view(['POST'])
