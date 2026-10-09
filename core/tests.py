@@ -150,3 +150,95 @@ class TeachSTEMCalendarTests(TestCase):
 
         r = c.put('/api/teach-stem/calendar/google/', {'url': ''}, format='json')
         self.assertEqual(r.data['google_calendar_embed_url'], '')
+
+
+from django.core import mail
+from django.test import override_settings
+
+from .models import ProjectStarter, TeachSTEMProfile
+
+
+@override_settings(NOTIFICATIONS_ASYNC=False, ADMIN_NOTIFICATION_EMAILS=[], SITE_URL='https://example.test')
+class NotificationTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user('admin', password='x', is_staff=True, email='admin@example.com')
+        self.teacher = User.objects.create_user('teacher', password='x', first_name='Jo', email='jo@example.com')
+        TeacherProfile.objects.create(user=self.teacher, is_approved=True, is_teach_stem=True, teach_stem_approved=True)
+        self.no_email = User.objects.create_user('noemail', password='x')
+        TeacherProfile.objects.create(user=self.no_email, is_approved=True, is_teach_stem=True, teach_stem_approved=True)
+        self.client = APIClient()
+
+    def as_user(self, user):
+        self.client.force_authenticate(user)
+        return self.client
+
+    def test_new_task_emails_members_with_an_address(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.as_user(self.admin).post('/api/teach-stem/tasks/', {'title': 'Read handbook'}, format='json')
+        self.assertEqual(r.data['notified'], 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['jo@example.com'])
+        self.assertIn('New Teach STEM task: Read handbook', mail.outbox[0].subject)
+        self.assertIn('https://example.test/teach-stem', mail.outbox[0].body)
+
+    def test_new_poll_lists_options(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.as_user(self.admin).post('/api/teach-stem/tasks/', {'title': 'Pick a week', 'poll_options': ['March 9', 'March 16']}, format='json')
+        self.assertIn('New Teach STEM poll', mail.outbox[0].subject)
+        self.assertIn('March 16', mail.outbox[0].body)
+
+    def test_new_event_emails_members(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.as_user(self.admin).post('/api/teach-stem/calendar/events/', {'title': 'Workshop', 'date': '2027-03-16', 'start_time': '09:00'}, format='json')
+        self.assertEqual(r.data['notified'], 1)
+        self.assertIn('Tuesday, March 16, 2027, 9:00 AM', mail.outbox[0].body)
+
+    def test_opted_out_teacher_is_skipped(self):
+        c = self.as_user(self.teacher)
+        c.post('/api/teach-stem/profile/', {'email_notifications': False}, format='json')
+        self.assertFalse(c.get('/api/teach-stem/profile/').data['email_notifications'])
+        with self.captureOnCommitCallbacks(execute=True):
+            self.as_user(self.admin).post('/api/teach-stem/tasks/', {'title': 'T'}, format='json')
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_profile_email_preferred_over_account_email(self):
+        TeachSTEMProfile.objects.create(teacher=self.teacher, email='jo.school@example.com')
+        with self.captureOnCommitCallbacks(execute=True):
+            self.as_user(self.admin).post('/api/teach-stem/tasks/', {'title': 'T'}, format='json')
+        self.assertEqual(mail.outbox[0].to, ['jo.school@example.com'])
+
+    def test_feedback_emails_teacher_once(self):
+        starter = ProjectStarter.objects.create(teacher=self.teacher, title='Bridges', status='submitted')
+        c = self.as_user(self.admin)
+        url = f'/api/admin/project-starters/{starter.id}/feedback/'
+        with self.captureOnCommitCallbacks(execute=True):
+            c.post(url, {'feedback': 'Great start'}, format='json')
+            c.post(url, {'feedback': 'Great start'}, format='json')  # unchanged re-save: no second email
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('"Bridges"', mail.outbox[0].body)
+        self.assertIn('https://example.test/teach-stem/project-starter', mail.outbox[0].body)
+
+    def test_submission_alerts_admins(self):
+        starter = ProjectStarter.objects.create(teacher=self.teacher, title='Bridges')
+        with self.captureOnCommitCallbacks(execute=True):
+            self.as_user(self.teacher).post(f'/api/teach-stem/project-starters/{starter.id}/submit/')
+        self.assertEqual(mail.outbox[0].to, ['admin@example.com'])
+        self.assertIn('project starter', mail.outbox[0].subject)
+
+    @override_settings(ADMIN_NOTIFICATION_EMAILS=['team@example.com'])
+    def test_signup_requires_email_and_alerts_admin_inbox(self):
+        c = APIClient()
+        data = {'first_name': 'Sam', 'last_name': 'Lee', 'username': 'sam', 'password': 'pw12345!', 'is_teach_stem': True}
+        self.assertEqual(c.post('/api/auth/register/teacher/', data, format='json').status_code, 400)
+        self.assertEqual(c.post('/api/auth/register/teacher/', {**data, 'email': 'nope'}, format='json').status_code, 400)
+        with self.captureOnCommitCallbacks(execute=True):
+            r = c.post('/api/auth/register/teacher/', {**data, 'email': 'sam@example.com'}, format='json')
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(User.objects.get(username='sam').email, 'sam@example.com')
+        self.assertEqual(mail.outbox[0].to, ['team@example.com'])
+        self.assertIn('Teach STEM', mail.outbox[0].body)
+
+    def test_dashboard_lists_members_without_email(self):
+        r = self.as_user(self.admin).get('/api/admin/dashboard/')
+        self.assertEqual(r.data['teach_stem_missing_email'], ['noemail'])
+

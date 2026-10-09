@@ -20,3 +20,4 @@ python-dotenv==1.0.1
 
 # PDF export (pure-Python, no system libs required — safe for Render's native runtime)
 xhtml2pdf==0.2.16
+django-anymail==15.2

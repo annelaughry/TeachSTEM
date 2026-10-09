@@ -228,6 +228,25 @@ if AWS_STORAGE_BUCKET_NAME:
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# --- Email notifications ---
+# Sent through Resend's HTTP API (Render's free tier blocks SMTP ports). Without RESEND_API_KEY,
+# emails are printed to the console instead of sent -- that's the normal local-dev setup.
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+if RESEND_API_KEY:
+    EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
+    ANYMAIL = {'RESEND_API_KEY': RESEND_API_KEY}
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = os.environ.get(
+    'NOTIFICATIONS_FROM_EMAIL', 'Young Scientist Academy <notifications@youngscientistacademy.org>'
+)
+# Where links in emails point.
+SITE_URL = os.environ.get('SITE_URL', 'https://teachstem.onrender.com').rstrip('/')
+# Comma-separated inboxes for admin alerts. If empty, alerts go to every admin account with an email.
+ADMIN_NOTIFICATION_EMAILS = [e.strip() for e in os.environ.get('ADMIN_NOTIFICATION_EMAILS', '').split(',') if e.strip()]
+# Send in a background thread so admins aren't kept waiting. Tests turn this off.
+NOTIFICATIONS_ASYNC = True
+
 # --- Security (only matters/applies once DEBUG=False behind the ALB) ---
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

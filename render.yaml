@@ -61,3 +61,13 @@ services:
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
+
+      # Email notifications (Resend) — set the secret ones manually in the Render dashboard.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NOTIFICATIONS_FROM_EMAIL
+        sync: false
+      - key: ADMIN_NOTIFICATION_EMAILS
+        sync: false
+      - key: SITE_URL
+        value: https://teachstem.onrender.com

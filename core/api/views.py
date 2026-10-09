@@ -1,7 +1,9 @@
 import json
 import os
 from django.contrib.auth import authenticate
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
+from django.core.validators import validate_email
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Q
@@ -28,6 +30,7 @@ from core.models import (
     StaffProfile, StaffTask, StaffTaskCompletion, StaffProjectTopicSubmission, StaffProjectStarter,
     StaffProjectReflection, StaffReflectionFile,
 )
+from core import notifications
 from core.views import _is_teacher, _save_sections_and_standards, _activity_completed_by
 from .pdf import render_activity_pdf
 from .serializers import (
@@ -77,13 +80,18 @@ def api_register_teacher(request):
     last = request.data.get('last_name', '').strip()
     username = request.data.get('username', '').strip()
     password = request.data.get('password', '')
-    if not (first and last and username and password):
+    email = request.data.get('email', '').strip()
+    if not (first and last and username and password and email):
         return Response({'error': 'All fields are required.'}, status=400)
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response({'error': 'Enter a valid email address.'}, status=400)
     if User.objects.filter(username=username).exists():
         return Response({'error': 'Username already taken.'}, status=400)
     user = User.objects.create_user(
         username=username, password=password,
-        first_name=first, last_name=last,
+        first_name=first, last_name=last, email=email,
     )
     is_teach_stem = request.data.get('is_teach_stem', False)
     is_program_staff = request.data.get('is_program_staff', False)
@@ -91,6 +99,7 @@ def api_register_teacher(request):
         user=user, is_approved=False,
         is_teach_stem=bool(is_teach_stem), is_program_staff=bool(is_program_staff),
     )
+    notifications.notify_admins_new_signup(user)
     return Response({'message': 'Account created. Awaiting admin approval.'}, status=201)
 
 
@@ -1073,6 +1082,9 @@ def api_admin_dashboard(request):
             for tp in pending_program_staff
         ],
         'pending_activities': ActivityListSerializer(pending_activities, many=True).data,
+        'teach_stem_missing_email': [
+            u.get_full_name() or u.username for u in notifications.teach_stem_members_without_email()
+        ],
     })
 
 
@@ -1165,6 +1177,15 @@ def api_project_reflections(request):
     return Response(TeacherProjectReflectionSerializer(reflection).data, status=201)
 
 
+def _with_notification_pref(request, data):
+    """Profile responses also carry the teacher's email-notification opt-in, which lives on TeacherProfile."""
+    tp = getattr(request.user, 'teacher_profile', None)
+    if tp and request.method == 'POST' and 'email_notifications' in request.data:
+        tp.email_notifications = bool(request.data.get('email_notifications'))
+        tp.save(update_fields=['email_notifications'])
+    return {**data, 'email_notifications': tp.email_notifications if tp else True}
+
+
 @api_view(['GET', 'POST'])
 def api_teach_stem_profile(request):
     if not _teach_stem_required(request):
@@ -1173,13 +1194,13 @@ def api_teach_stem_profile(request):
     profile, _ = TeachSTEMProfile.objects.get_or_create(teacher=request.user)
 
     if request.method == 'GET':
-        return Response(TeachSTEMProfileSerializer(profile).data)
+        return Response(_with_notification_pref(request, TeachSTEMProfileSerializer(profile).data))
 
     serializer = TeachSTEMProfileSerializer(profile, data=request.data, partial=True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=400)
     serializer.save()
-    return Response(serializer.data)
+    return Response(_with_notification_pref(request, serializer.data))
 
 
 @api_view(['GET', 'POST'])
@@ -1203,7 +1224,9 @@ def api_teach_stem_tasks(request):
     with transaction.atomic():
         task = serializer.save(created_by=request.user)
         _set_poll_options(task, options)
-    return Response(TeachSTEMTaskSerializer(task, context={'request': request}).data, status=201)
+    data = TeachSTEMTaskSerializer(task, context={'request': request}).data
+    data['notified'] = notifications.notify_new_teach_stem_task(task)
+    return Response(data, status=201)
 
 
 def _clean_poll_options(raw):
@@ -1300,8 +1323,9 @@ def api_teach_stem_calendar_events(request):
     serializer = TeachSTEMCalendarEventSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=400)
-    serializer.save(created_by=request.user)
-    return Response(serializer.data, status=201)
+    event = serializer.save(created_by=request.user)
+    data = {**serializer.data, 'notified': notifications.notify_new_calendar_event(event)}
+    return Response(data, status=201)
 
 
 @api_view(['PUT', 'DELETE'])
@@ -1454,6 +1478,7 @@ def api_project_topic_submit(request, pk):
         return Response({'error': 'At least 3 research questions are required.'}, status=400)
     sub.status = 'submitted'
     sub.save()
+    notifications.notify_admins_submission(request.user, 'Teach STEM project topic plan', sub.classroom_name)
     return Response(ProjectTopicSubmissionSerializer(sub).data)
 
 
@@ -1474,11 +1499,14 @@ def api_admin_project_topic_feedback(request, pk):
     except ProjectTopicSubmission.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
     from django.utils import timezone
+    previous_feedback = sub.admin_feedback
     sub.admin_feedback = request.data.get('feedback', '').strip()
     sub.reviewed_by = request.user
     sub.reviewed_at = timezone.now()
     sub.status = 'reviewed'
     sub.save()
+    if sub.admin_feedback and sub.admin_feedback != previous_feedback:
+        notifications.notify_feedback('project_topic', sub.teacher, sub.classroom_name)
     return Response(ProjectTopicSubmissionSerializer(sub).data)
 
 
@@ -1529,6 +1557,7 @@ def api_project_starter_submit(request, pk):
         return Response({'error': 'A title is required to submit for review.'}, status=400)
     starter.status = 'submitted'
     starter.save()
+    notifications.notify_admins_submission(request.user, 'Teach STEM project starter', starter.title)
     return Response(ProjectStarterSerializer(starter).data)
 
 
@@ -1549,11 +1578,14 @@ def api_admin_project_starter_feedback(request, pk):
     except ProjectStarter.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
     from django.utils import timezone
+    previous_feedback = starter.admin_feedback
     starter.admin_feedback = request.data.get('feedback', '').strip()
     starter.reviewed_by = request.user
     starter.reviewed_at = timezone.now()
     starter.status = 'reviewed'
     starter.save()
+    if starter.admin_feedback and starter.admin_feedback != previous_feedback:
+        notifications.notify_feedback('project_starter', starter.teacher, starter.title)
     return Response(ProjectStarterSerializer(starter).data)
 
 
@@ -1614,13 +1646,13 @@ def api_staff_profile(request):
     profile, _ = StaffProfile.objects.get_or_create(teacher=request.user)
 
     if request.method == 'GET':
-        return Response(StaffProfileSerializer(profile).data)
+        return Response(_with_notification_pref(request, StaffProfileSerializer(profile).data))
 
     serializer = StaffProfileSerializer(profile, data=request.data, partial=True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=400)
     serializer.save()
-    return Response(serializer.data)
+    return Response(_with_notification_pref(request, serializer.data))
 
 
 @api_view(['GET', 'POST'])
@@ -1728,6 +1760,7 @@ def api_staff_project_topic_submit(request, pk):
         return Response({'error': 'At least 3 research questions are required.'}, status=400)
     sub.status = 'submitted'
     sub.save()
+    notifications.notify_admins_submission(request.user, 'Staff project topic plan', sub.classroom_name)
     return Response(StaffProjectTopicSubmissionSerializer(sub).data)
 
 
@@ -1748,11 +1781,14 @@ def api_admin_staff_project_topic_feedback(request, pk):
     except StaffProjectTopicSubmission.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
     from django.utils import timezone
+    previous_feedback = sub.admin_feedback
     sub.admin_feedback = request.data.get('feedback', '').strip()
     sub.reviewed_by = request.user
     sub.reviewed_at = timezone.now()
     sub.status = 'reviewed'
     sub.save()
+    if sub.admin_feedback and sub.admin_feedback != previous_feedback:
+        notifications.notify_feedback('staff_project_topic', sub.teacher, sub.classroom_name)
     return Response(StaffProjectTopicSubmissionSerializer(sub).data)
 
 
@@ -1803,6 +1839,7 @@ def api_staff_project_starter_submit(request, pk):
         return Response({'error': 'A title is required to submit for review.'}, status=400)
     starter.status = 'submitted'
     starter.save()
+    notifications.notify_admins_submission(request.user, 'Staff project starter', starter.title)
     return Response(StaffProjectStarterSerializer(starter).data)
 
 
@@ -1823,11 +1860,14 @@ def api_admin_staff_project_starter_feedback(request, pk):
     except StaffProjectStarter.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
     from django.utils import timezone
+    previous_feedback = starter.admin_feedback
     starter.admin_feedback = request.data.get('feedback', '').strip()
     starter.reviewed_by = request.user
     starter.reviewed_at = timezone.now()
     starter.status = 'reviewed'
     starter.save()
+    if starter.admin_feedback and starter.admin_feedback != previous_feedback:
+        notifications.notify_feedback('staff_project_starter', starter.teacher, starter.title)
     return Response(StaffProjectStarterSerializer(starter).data)
 
 
@@ -1880,7 +1920,8 @@ def api_topic_suggestions(request):
     serializer = TopicSuggestionSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=400)
-    serializer.save(teacher=request.user)
+    suggestion = serializer.save(teacher=request.user)
+    notifications.notify_admins_submission(request.user, 'topic suggestion', suggestion.topic)
     return Response(serializer.data, status=201)
 
 
@@ -1915,11 +1956,14 @@ def api_admin_topic_suggestion_feedback(request, pk):
     except TopicSuggestion.DoesNotExist:
         return Response({'error': 'Not found.'}, status=404)
     from django.utils import timezone
+    previous_feedback = sub.admin_feedback
     sub.admin_feedback = request.data.get('feedback', '').strip()
     sub.reviewed_by = request.user
     sub.reviewed_at = timezone.now()
     sub.status = 'reviewed'
     sub.save()
+    if sub.admin_feedback and sub.admin_feedback != previous_feedback:
+        notifications.notify_feedback('topic_suggestion', sub.teacher, sub.topic)
     return Response(TopicSuggestionSerializer(sub).data)
 
 

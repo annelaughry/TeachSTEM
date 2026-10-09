@@ -293,6 +293,9 @@ class TeacherProfile(models.Model):
     teach_stem_approved = models.BooleanField(default=False)
     is_program_staff = models.BooleanField(default=False)
     program_staff_approved = models.BooleanField(default=False)
+    email_notifications = models.BooleanField(
+        default=True, help_text='Email this teacher about new tasks, calendar events and feedback.'
+    )
 
     def __str__(self):
         status = "approved" if self.is_approved else "pending"

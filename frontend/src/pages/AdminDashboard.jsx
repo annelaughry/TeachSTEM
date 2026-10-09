@@ -67,6 +67,7 @@ export default function AdminDashboard() {
   const [pollForm, setPollForm]         = useState(BLANK_POLL)
   const [savingPoll, setSavingPoll]     = useState(false)
   const [pollError, setPollError]       = useState(null)
+  const [taskNotice, setTaskNotice]     = useState(null)   // "emailed N teachers" after posting
 
   // Teach STEM calendar state
   const [calEvents, setCalEvents]           = useState([])
@@ -80,6 +81,7 @@ export default function AdminDashboard() {
   const [savingGoogle, setSavingGoogle]     = useState(false)
   const [googleMsg, setGoogleMsg]           = useState(null)   // { error: bool, text }
   const eventFormRef                        = useRef(null)
+  const [eventNotice, setEventNotice]       = useState(null)
 
   // Staff project topic reviews
   const [staffProjectSubs, setStaffProjectSubs] = useState([])
@@ -250,6 +252,7 @@ export default function AdminDashboard() {
     try {
       const { data: created } = await api.post('teach-stem/tasks/', taskForm)
       setTasks(prev => [...prev, created].sort(byDueDate))
+      setTaskNotice(emailedNotice('Task', created.notified))
       setTaskForm(BLANK_TASK)
     } catch { setTaskError('Something went wrong.') }
     finally { setSavingTask(false) }
@@ -269,6 +272,7 @@ export default function AdminDashboard() {
       const { title, description, due_date } = pollForm
       const { data: created } = await api.post('teach-stem/tasks/', { title, description, due_date, poll_options: options })
       setTasks(prev => [...prev, created].sort(byDueDate))
+      setTaskNotice(emailedNotice('Poll', created.notified))
       setPollForm(BLANK_POLL)
       setShowPollForm(false)
     } catch (err) {
@@ -288,6 +292,7 @@ export default function AdminDashboard() {
       } else {
         const { data: created } = await api.post('teach-stem/calendar/events/', eventForm)
         setCalEvents(prev => [...prev, created].sort(byEventDate))
+        setEventNotice(emailedNotice('Event', created.notified))
       }
       setEventForm(BLANK_EVENT)
       setEditingEvent(null)
@@ -1108,8 +1113,17 @@ export default function AdminDashboard() {
             )}
           </div>
           <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
-            Tasks and polls posted here appear on every Teach STEM member's dashboard. Answering a poll completes it.
+            Tasks and polls posted here appear on every Teach STEM member's dashboard and are emailed to them. Answering a poll completes it.
           </p>
+
+          {data?.teach_stem_missing_email?.length > 0 && (
+            <div className="card" style={{ marginBottom: '1rem', borderLeft: '4px solid var(--yellow)', fontSize: '0.88rem' }}>
+              <strong>{data.teach_stem_missing_email.length} Teach STEM {data.teach_stem_missing_email.length === 1 ? 'member has' : 'members have'} no email address</strong>
+              {' '}and won't get email notifications: {data.teach_stem_missing_email.join(', ')}.
+              They can add one on their Teach STEM profile page.
+            </div>
+          )}
+          {taskNotice && <NoticeLine text={taskNotice} onClose={() => setTaskNotice(null)} />}
 
           {/* New poll form */}
           {showPollForm && (
@@ -1298,8 +1312,9 @@ export default function AdminDashboard() {
         <section style={{ marginBottom: '2.5rem' }}>
           <div className="section-title">Teach STEM Calendar</div>
           <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
-            Events posted here appear on the calendar on every Teach STEM member's dashboard.
+            Events posted here appear on the calendar on every Teach STEM member's dashboard. New events are emailed to members.
           </p>
+          {eventNotice && <NoticeLine text={eventNotice} onClose={() => setEventNotice(null)} />}
 
           {(() => {
             const today = todayKey()
@@ -1782,6 +1797,20 @@ function PollResults({ task }) {
       <div className="text-muted" style={{ fontSize: '0.78rem' }}>
         {total} {total === 1 ? 'response' : 'responses'}
       </div>
+    </div>
+  )
+}
+
+function emailedNotice(kind, count) {
+  if (!count) return `${kind} posted. No one was emailed: no Teach STEM members have an email address with notifications on.`
+  return `${kind} posted. Emailing ${count} Teach STEM ${count === 1 ? 'member' : 'members'}.`
+}
+
+function NoticeLine({ text, onClose }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#2e7d32', background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 6, padding: '0.5rem 0.85rem', marginBottom: '1rem', fontSize: '0.88rem', fontWeight: 700 }}>
+      <span style={{ flex: 1 }}>{text}</span>
+      <button onClick={onClose} className="btn btn--ghost btn--sm">Dismiss</button>
     </div>
   )
 }

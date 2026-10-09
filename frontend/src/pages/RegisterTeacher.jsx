@@ -4,7 +4,7 @@ import api from '../api'
 
 export default function RegisterTeacher() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ first_name: '', last_name: '', username: '', password: '' })
+  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', username: '', password: '' })
   const [isTeachSTEM, setIsTeachSTEM] = useState(false)
   const [isProgramStaff, setIsProgramStaff] = useState(false)
   const [error, setError] = useState('')
@@ -45,6 +45,10 @@ export default function RegisterTeacher() {
                 <label className="form-label">Last name</label>
                 <input className="form-input" value={form.last_name} onChange={set('last_name')} />
               </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input type="email" className="form-input" value={form.email} onChange={set('email')} autoComplete="email" required />
             </div>
             <div className="form-group">
               <label className="form-label">Username</label>

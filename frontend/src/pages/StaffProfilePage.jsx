@@ -4,7 +4,7 @@ import api from '../api'
 
 export default function StaffProfilePage() {
   const [form, setForm]         = useState({
-    name: '', school: '', subject_taught: '', num_students: '', years_teaching: '', email: '',
+    name: '', school: '', subject_taught: '', num_students: '', years_teaching: '', email: '', email_notifications: true,
   })
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
@@ -21,6 +21,7 @@ export default function StaffProfilePage() {
         num_students:  d.num_students  != null ? String(d.num_students) : '',
         years_teaching: d.years_teaching != null ? String(d.years_teaching) : '',
         email:         d.email         || '',
+        email_notifications: d.email_notifications !== false,
       })
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
@@ -39,6 +40,7 @@ export default function StaffProfilePage() {
         num_students:   form.num_students   !== '' ? parseInt(form.num_students)   : null,
         years_teaching: form.years_teaching !== '' ? parseInt(form.years_teaching) : null,
         email:          form.email,
+        email_notifications: form.email_notifications,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -86,6 +88,14 @@ export default function StaffProfilePage() {
                 value={form.email}
                 onChange={e => set('email', e.target.value)}
               />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.9rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.email_notifications}
+                  onChange={e => set('email_notifications', e.target.checked)}
+                />
+                Email me about new tasks, events and feedback
+              </label>
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
